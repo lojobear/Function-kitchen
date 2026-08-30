@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User Profile
+    match /users/{userId}/user_profile/{profileId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User's Finished Items Vault
+    match /users/{userId}/finished_items/{itemId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User's Custom / Discovered Ingredients
+    match /users/{userId}/custom_ingredients/{ingredientId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // User's Custom / Discovered Crafting Methods
+    match /users/{userId}/custom_methods/{methodId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

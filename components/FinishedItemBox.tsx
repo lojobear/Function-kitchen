@@ -1,0 +1,232 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { FinishedItem } from '../constants';
+import { ItemSprite } from './ItemSprite';
+import { calculateEfficiency, EfficiencyMetricsChart } from './EfficiencyMetricsChart';
+
+interface FinishedItemBoxProps {
+  finishedItem: FinishedItem | null;
+  isCrafting: boolean;
+  targetGoal: string;
+  activeAction: string | null;
+  showcaseCount: number;
+  onClearItem: () => void;
+  onInspectSprite?: (item: FinishedItem) => void;
+}
+
+export function FinishedItemBox({
+  finishedItem,
+  isCrafting,
+  targetGoal,
+  activeAction,
+  showcaseCount,
+  onClearItem,
+  onInspectSprite,
+}: FinishedItemBoxProps) {
+  const [showFullMetrics, setShowFullMetrics] = useState<boolean>(true);
+  if (isCrafting) {
+    return (
+      <div className="finished-box-container crafting-active">
+        <div className="finished-box-header">
+          <span className="box-badge">⚡ SYNTHESIS IN PROGRESS</span>
+          <span className="box-goal-label">Goal: {targetGoal || 'Custom Request'}</span>
+        </div>
+
+        <div className="synthesis-chamber">
+          <div className="chamber-glow-ring"></div>
+          <div className="chamber-inner">
+            <span className="chamber-spinner">⚙️</span>
+            <span className="chamber-emoji-pulse">🔮</span>
+          </div>
+          <div className="chamber-status">
+            <div className="status-title">Executing AI Tool Calls...</div>
+            <div className="status-sub">
+              {activeAction ? (
+                <>Applying tool: <code className="active-action-code">{activeAction}()</code></>
+              ) : (
+                'Analyzing recipe and combining components...'
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!finishedItem) {
+    return (
+      <div className="finished-box-container idle">
+        <div className="finished-box-header">
+          <span className="box-badge">📦 FINISHED ITEM VAULT</span>
+          <span className="box-sub">Showcase Vault ({showcaseCount} items created)</span>
+        </div>
+        <div className="vault-placeholder">
+          <div className="placeholder-icon">🔮</div>
+          <h3 className="placeholder-title">Ready to Create Anything</h3>
+          <p className="placeholder-text">
+            Type any item, food, weapon, or gadget in the bar above and click <strong>"Synthesize & Mix"</strong>. 
+            Gemini 3 Flash will sequence function calls and generate the finished product with its matching sprite right here!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const rarityColor = finishedItem.color || (
+    finishedItem.rarity === 'Legendary' ? '#f59e0b' :
+    finishedItem.rarity === 'Epic' ? '#8b5cf6' :
+    finishedItem.rarity === 'Rare' ? '#3b82f6' : '#10b981'
+  );
+
+  const efficiency = calculateEfficiency(
+    finishedItem.toolsUsed,
+    finishedItem.ingredientsUsed,
+    finishedItem.rarity,
+    rarityColor
+  );
+
+  return (
+    <div className="finished-box-container complete" style={{ '--item-theme-color': rarityColor } as React.CSSProperties}>
+      <div className="finished-box-header">
+        <div className="header-badges-left">
+          <span className={`rarity-tag rarity-${finishedItem.rarity.toLowerCase()}`}>
+            ✨ {finishedItem.rarity.toUpperCase()} CREATION
+          </span>
+          <div
+            className="efficiency-header-pill"
+            title={`Logical Multi-Stage Crafting: ${efficiency.actualSteps} deliberate fabrication stages executed (${efficiency.materialsCount} materials processed)`}
+            onClick={() => setShowFullMetrics(!showFullMetrics)}
+          >
+            <span className="efficiency-bolt">⚒️</span>
+            <span className="efficiency-score-value">{efficiency.actualSteps} Crafting Stages</span>
+            <span className="efficiency-steps-saved-tag">{efficiency.grade}</span>
+          </div>
+        </div>
+
+        <div className="header-actions-right">
+          <button
+            type="button"
+            className={`toggle-metrics-btn ${showFullMetrics ? 'active' : ''}`}
+            onClick={() => setShowFullMetrics(!showFullMetrics)}
+            title="Toggle D3 Performance Metrics & Comparison Charts"
+          >
+            <span>📊 {showFullMetrics ? 'Hide D3 Charts' : 'D3 Performance'}</span>
+          </button>
+          <button className="clear-box-btn" onClick={onClearItem} title="Clear Box">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div className="finished-item-card">
+        {/* Sprite Display Frame */}
+        <div
+          className="sprite-frame-wrapper"
+          onClick={() => onInspectSprite && onInspectSprite(finishedItem)}
+          style={{ cursor: onInspectSprite ? 'pointer' : 'default' }}
+          title="Click to inspect or download sprite"
+        >
+          <div className="sprite-frame-aura" style={{ background: `radial-gradient(circle, ${rarityColor}88 0%, transparent 70%)` }}></div>
+          <ItemSprite
+            name={finishedItem.name}
+            emoji={finishedItem.emoji}
+            color={rarityColor}
+            rarity={finishedItem.rarity}
+            size="large"
+            showRarityBadge={true}
+          />
+          <span className="category-pill">{finishedItem.category}</span>
+        </div>
+
+        {/* Item Metadata & Lore */}
+        <div className="item-details">
+          <div className="item-title-row">
+            <h2 className="item-title">{finishedItem.name}</h2>
+            <div className="item-mini-efficiency-badge">
+              <span>{efficiency.speedup}x Faster Path</span>
+            </div>
+          </div>
+          <p className="item-description">{finishedItem.description}</p>
+
+          {/* Automated Tags */}
+          {finishedItem.tags && finishedItem.tags.length > 0 && (
+            <div className="item-tags-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '8px 0 12px 0' }}>
+              {finishedItem.tags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    letterSpacing: '0.3px',
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="item-recipe-stats">
+            <div className="stat-group">
+              <span className="stat-label">🛠️ Tools Used ({finishedItem.toolsUsed.length}):</span>
+              <div className="stat-chips">
+                {finishedItem.toolsUsed.map((tool, idx) => (
+                  <span key={idx} className="tool-chip">
+                    {tool}()
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="stat-group">
+              <span className="stat-label">🧪 Materials Combined ({finishedItem.ingredientsUsed.length}):</span>
+              <div className="stat-chips">
+                {finishedItem.ingredientsUsed.map((ing, idx) => (
+                  <span key={idx} className="material-chip">
+                    {ing}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* D3 Performance Metrics & Comparison Charts */}
+          {showFullMetrics ? (
+            <div className="efficiency-section-wrapper">
+              <EfficiencyMetricsChart data={efficiency} compact={false} />
+            </div>
+          ) : (
+            <div
+              className="efficiency-compact-wrapper"
+              onClick={() => setShowFullMetrics(true)}
+              title="Click to expand D3 performance charts"
+            >
+              <EfficiencyMetricsChart data={efficiency} compact={true} />
+            </div>
+          )}
+
+          <div className="finished-item-actions-row">
+            {onInspectSprite && (
+              <button
+                type="button"
+                className="inspect-sprite-action-btn"
+                onClick={() => onInspectSprite(finishedItem)}
+              >
+                <span>🎨 Inspect & Download Sprite</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and workshop statistics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "Avatar URL" },
+        "totalCrafted": { "type": "number", "description": "Count of crafted creations" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["userId"]
+    },
+    "FinishedItem": {
+      "title": "FinishedItem",
+      "description": "A synthesized and finalized item created in the forge workshop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "userId": { "type": "string", "description": "Creator User ID" },
+        "name": { "type": "string", "description": "Name of the crafted item" },
+        "emoji": { "type": "string", "description": "Icon or emoji representation" },
+        "rarity": { "type": "string", "enum": ["Common", "Rare", "Epic", "Legendary"], "description": "Rarity tier" },
+        "category": { "type": "string", "description": "Item category" },
+        "color": { "type": "string", "description": "Theme/glow color" },
+        "description": { "type": "string", "description": "Evocative item description" },
+        "toolsUsed": { "type": "array", "description": "Tools used during synthesis" },
+        "ingredientsUsed": { "type": "array", "description": "Ingredients used" },
+        "createdAt": { "type": "string", "description": "Creation ISO date" }
+      },
+      "required": ["id", "userId", "name", "emoji", "rarity", "category", "color", "description"]
+    },
+    "CustomIngredient": {
+      "title": "CustomIngredient",
+      "description": "An unlocked or created ingredient stored in user inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Ingredient ID or slug" },
+        "userId": { "type": "string", "description": "Owner UID" },
+        "name": { "type": "string", "description": "Ingredient name" },
+        "emoji": { "type": "string", "description": "Ingredient emoji" },
+        "category": { "type": "string", "description": "Ingredient category" },
+        "isCustom": { "type": "boolean", "description": "Whether user or AI created" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["id", "userId", "name", "emoji"]
+    },
+    "CustomMethod": {
+      "title": "CustomMethod",
+      "description": "An unlocked or created crafting tool/method",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Method ID or function name" },
+        "userId": { "type": "string", "description": "Owner UID" },
+        "name": { "type": "string", "description": "Sanitized tool name" },
+        "displayName": { "type": "string", "description": "Human readable name" },
+        "emoji": { "type": "string", "description": "Tool emoji" },
+        "category": { "type": "string", "description": "Tool category" },
+        "isCustom": { "type": "boolean", "description": "Whether discovered or added" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["id", "userId", "name", "displayName", "emoji"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/user_profile/{profileId}": {
+      "schema": "UserProfile",
+      "description": "User profile settings and stats"
+    },
+    "/users/{userId}/finished_items/{itemId}": {
+      "schema": "FinishedItem",
+      "description": "Finished creations saved by the user"
+    },
+    "/users/{userId}/custom_ingredients/{ingredientId}": {
+      "schema": "CustomIngredient",
+      "description": "Custom or discovered ingredients"
+    },
+    "/users/{userId}/custom_methods/{methodId}": {
+      "schema": "CustomMethod",
+      "description": "Custom or discovered crafting methods"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Function calling workshop that takes any input item idea, sequences tool calls to mix components, and displays the finished product with matching sprite.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "name": "Function Call Crafting Forge",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
