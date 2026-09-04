@@ -20,6 +20,8 @@ import { ItemSprite } from './components/ItemSprite';
 import { AuthHeader } from './components/AuthHeader';
 import { AddCustomItemModal } from './components/AddCustomItemModal';
 import { SpriteInspectorModal } from './components/SpriteInspectorModal';
+import { SpriteUploadModal } from './components/SpriteUploadModal';
+import { initCustomSpritesSync, subscribeCustomSprites, getAllCustomSprites } from './lib/custom-sprite-service';
 import { useAuthAndForgeSync } from './hooks/use-auth-sync';
 import { analyzeItem } from './lib/tagging-engine';
 import { getItemColor } from './lib/sprite-engine';
@@ -135,7 +137,7 @@ function ActionTile({ action, isActive, isDisabled, onClick }: ActionTileProps) 
     >
       <span className="tile-sprite-thumb">
         <ItemSprite
-          name={action.displayName || action.name}
+          name={action.name}
           emoji={action.emoji}
           category={action.category || 'tool'}
           size="thumb"
@@ -173,9 +175,17 @@ function TimelineItem({ entry }: TimelineItemProps) {
       {hasAction && (
         <>
           <div className="timeline-action">
-            <span className="action-name">{entry.action}(</span>
-            <span className="action-args">{entry.ingredients?.join(', ')}</span>
-            <span className="action-name">)</span>
+            <ItemSprite
+              name={entry.action}
+              emoji="🛠️"
+              category="tool"
+              size="thumb"
+            />
+            <div className="timeline-action-text">
+              <span className="action-name">{entry.action}(</span>
+              <span className="action-args">{entry.ingredients?.join(', ')}</span>
+              <span className="action-name">)</span>
+            </div>
           </div>
           <div className="timeline-result">
             <span className="timeline-result-arrow">↳</span>
@@ -186,7 +196,7 @@ function TimelineItem({ entry }: TimelineItemProps) {
                 <ItemSprite
                   name={entry.result!.name}
                   emoji={entry.result!.emoji}
-                  size="thumb"
+                  size="small"
                 />
                 <span className="result-name">{entry.result!.name}</span>
               </div>
@@ -982,6 +992,37 @@ function KitchenAppContainer() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [inspectingItem, setInspectingItem] = useState<FinishedItem | null>(null);
+  const [isSpriteUploadModalOpen, setIsSpriteUploadModalOpen] = useState(false);
+  const [spriteUploadTarget, setSpriteUploadTarget] = useState<{
+    name: string;
+    type: 'item' | 'tool' | 'ingredient' | 'any';
+  }>({ name: '', type: 'item' });
+  const [customSpritesCount, setCustomSpritesCount] = useState<number>(
+    () => Object.keys(getAllCustomSprites()).length
+  );
+
+  // Sync community custom sprites in real-time from Firestore
+  useEffect(() => {
+    const cleanupSync = initCustomSpritesSync();
+    const cleanupSub = subscribeCustomSprites((sprites) => {
+      setCustomSpritesCount(Object.keys(sprites).length);
+    });
+    return () => {
+      cleanupSync();
+      cleanupSub();
+    };
+  }, []);
+
+  const handleOpenSpriteUploader = useCallback(
+    (name?: string, type: 'item' | 'tool' | 'ingredient' | 'any' = 'item') => {
+      setSpriteUploadTarget({
+        name: name || '',
+        type,
+      });
+      setIsSpriteUploadModalOpen(true);
+    },
+    []
+  );
 
   const [usedToolsSession, setUsedToolsSession] = useState<string[]>([]);
   const [usedMaterialsSession, setUsedMaterialsSession] = useState<string[]>([]);
@@ -1197,6 +1238,8 @@ function KitchenAppContainer() {
           onLogout={logout}
           savedItemsCount={syncedFinishedItems.length}
           customIngredientsCount={syncedIngredients.length}
+          onOpenSpriteStudio={() => handleOpenSpriteUploader('', 'any')}
+          customSpritesCount={customSpritesCount}
         />
 
         {/* Title Header */}
@@ -1232,6 +1275,7 @@ function KitchenAppContainer() {
           showcaseCount={syncedFinishedItems.length}
           onClearItem={() => setFinishedItem(null)}
           onInspectSprite={(item) => setInspectingItem(item)}
+          onUploadSprite={(item) => handleOpenSpriteUploader(item.name, 'item')}
         />
 
         {/* Showcase Gallery */}
@@ -1240,6 +1284,7 @@ function KitchenAppContainer() {
           selectedItemId={finishedItem?.id || null}
           onSelectItem={(item) => setFinishedItem(item)}
           onInspectItem={(item) => setInspectingItem(item)}
+          onUploadSprite={(item) => handleOpenSpriteUploader(item.name, 'item')}
           onDeleteItem={(id) => deleteFinishedItem(id)}
         />
       </div>
@@ -1325,6 +1370,18 @@ function KitchenAppContainer() {
         item={inspectingItem}
         isOpen={Boolean(inspectingItem)}
         onClose={() => setInspectingItem(null)}
+        onOpenUploader={(itemName) => handleOpenSpriteUploader(itemName, 'item')}
+      />
+
+      {/* Community Sprite Studio & Uploader Modal */}
+      <SpriteUploadModal
+        isOpen={isSpriteUploadModalOpen}
+        onClose={() => setIsSpriteUploadModalOpen(false)}
+        initialTargetName={spriteUploadTarget.name}
+        initialTargetType={spriteUploadTarget.type}
+        inventory={inventory}
+        tools={allActions}
+        finishedItems={syncedFinishedItems}
       />
 
       {/* Attribution Footer */}

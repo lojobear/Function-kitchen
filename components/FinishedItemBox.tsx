@@ -16,6 +16,7 @@ interface FinishedItemBoxProps {
   showcaseCount: number;
   onClearItem: () => void;
   onInspectSprite?: (item: FinishedItem) => void;
+  onUploadSprite?: (item: FinishedItem) => void;
 }
 
 export function FinishedItemBox({
@@ -26,6 +27,7 @@ export function FinishedItemBox({
   showcaseCount,
   onClearItem,
   onInspectSprite,
+  onUploadSprite,
 }: FinishedItemBoxProps) {
   const [showFullMetrics, setShowFullMetrics] = useState<boolean>(true);
   if (isCrafting) {
@@ -214,14 +216,37 @@ export function FinishedItemBox({
             </div>
           )}
 
-          <div className="finished-item-actions-row">
+          <div className="finished-item-actions-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {onInspectSprite && (
               <button
                 type="button"
                 className="inspect-sprite-action-btn"
                 onClick={() => onInspectSprite(finishedItem)}
               >
-                <span>🎨 Inspect & Download Sprite</span>
+                <span>🎨 Inspect & Download</span>
+              </button>
+            )}
+            {onUploadSprite && (
+              <button
+                type="button"
+                className="upload-sprite-btn-action"
+                onClick={() => onUploadSprite(finishedItem)}
+                style={{
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid #38bdf8',
+                  color: '#38bdf8',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span>📷 Upload Custom Sprite</span>
               </button>
             )}
           </div>

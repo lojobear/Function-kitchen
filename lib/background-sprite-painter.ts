@@ -16,14 +16,15 @@ import {
   shadeColor,
   getItemColor,
   detectArchetype,
-  generateArchetypePixelMatrix,
 } from './sprite-engine';
+import { generateArchetypePixelMatrix64, PixelMatrix64 } from './sprite-engine-64';
 
-export type PixelMatrix24 = number[][];
+export type PixelMatrix = PixelMatrix64;
+export type PixelMatrix24 = PixelMatrix64; // Backwards compatible alias
 
 export interface CachedSpriteData {
   name: string;
-  matrix: PixelMatrix24;
+  matrix: PixelMatrix64;
   colors?: Record<number, string>;
   createdAt: number;
   source: 'ai' | 'semantic';
@@ -36,7 +37,7 @@ const processingQueue = new Set<string>();
 const listeners = new Set<(name: string, data: CachedSpriteData) => void>();
 
 function getStorageKey(name: string): string {
-  return `sprite_matrix_v5_${name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_')}`;
+  return `sprite_matrix_v64_${name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_')}`;
 }
 
 /**
@@ -111,21 +112,21 @@ export function onSpriteUpdated(fn: (name: string, data: CachedSpriteData) => vo
 
 // ============================================================================
 // Semantic Pixel Matrix Synthesizer
-// Generates completely unique 24x24 pixel art tailored strictly to the name
+// Generates completely unique 64x64 pixel art tailored strictly to the name
 // ============================================================================
 
 /**
- * Synthesizes a high-fidelity 24x24 pixel matrix tailored to any natural name
+ * Synthesizes a high-fidelity 64x64 pixel matrix tailored to any natural name
  */
 export function synthesizeSemanticPixelMatrix(
   name: string,
   category: string = '',
   emoji: string = ''
-): PixelMatrix24 {
+): PixelMatrix64 {
   const cleanName = name.trim();
   const archetype = detectArchetype(cleanName, category, emoji);
   const seed = hashString(cleanName + category + emoji);
-  return generateArchetypePixelMatrix(archetype, seed, cleanName, category);
+  return generateArchetypePixelMatrix64(archetype, seed, cleanName, category);
 }
 
 // ============================================================================
@@ -155,7 +156,7 @@ export function enqueueBackgroundSpriteGeneration(
   // Execute on next tick in the background
   setTimeout(async () => {
     try {
-      // 1. Synthesize detailed semantic pixel matrix
+      // 1. Synthesize detailed semantic 64-bit pixel matrix
       const matrix = synthesizeSemanticPixelMatrix(cleanName, category, emoji);
       const primaryColor = getItemColor({ name: cleanName, category, rarity });
 
@@ -171,16 +172,24 @@ export function enqueueBackgroundSpriteGeneration(
           3: primaryColor, // Base Mid-tone
           4: shadeColor(primaryColor, 40), // Specular Highlight
           5: '#ffffff', // Radiant Core Pure White
-          6: '#334155', // Secondary Dark (Gunmetal / Deep Walnut)
-          7: '#94a3b8', // Secondary Light (Silver / Polished Steel)
-          8: '#ef4444', // Ruby / Crimson Plasma
-          9: '#f87171', // Gem Specular
-          10: '#f59e0b', // Imperial Gold / Honey Butter
-          11: '#10b981', // Emerald Nature / Spore Green
-          12: '#38bdf8', // Ice Sheen / Distillation Glass
-          13: '#c084fc', // Arcane Purple Rune
-          14: '#06b6d4', // Cyan Plasma Arc
-          15: '#0f172a', // Ambient Shadow
+          6: '#1e293b', // Secondary Dark (Carbon / Deep Walnut / Slate)
+          7: '#64748b', // Secondary Mid (Silver / Steel)
+          8: '#cbd5e1', // Secondary Light (Platinum / Chrome)
+          9: '#ef4444', // Ruby / Crimson / Fire Red
+          10: '#f97316', // Flame Orange / Amber
+          11: '#f59e0b', // Imperial Gold / Honey Butter
+          12: '#10b981', // Emerald Nature / Spore Green
+          13: '#8b5cf6', // Arcane Purple Rune
+          14: '#06b6d4', // Electric Cyan / Plasma Arc
+          15: '#92400e', // Warm Wood Brown / Leather
+          16: '#fef3c7', // Soft Cream / Pasta Ivory
+          17: '#090d16', // Deep Ambient Shadow
+          18: '#eab308', // Electric Yellow
+          19: '#ec4899', // Neon Pink
+          20: '#0f172a', // Midnight Navy
+          21: '#dc2626', // Rich Red Marinara
+          22: '#059669', // Fresh Mint Green
+          23: '#78350f', // Roasted Brown Crust
         },
       };
 

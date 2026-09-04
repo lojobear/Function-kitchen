@@ -178,11 +178,30 @@ export function getItemColor(item: { name: string; category?: string; color?: st
   return RARITY_PALETTES[rarity]?.border || '#3b82f6';
 }
 
+import { generateArchetypePixelMatrix64, PixelMatrix64 } from './sprite-engine-64';
+
 // ----------------------------------------------------------------------------
 // Item Archetypes
 // ----------------------------------------------------------------------------
 
 export type ItemArchetype =
+  | 'tool_smelt'
+  | 'tool_forge'
+  | 'tool_weld'
+  | 'tool_knead'
+  | 'tool_bake'
+  | 'tool_roast'
+  | 'tool_fry'
+  | 'tool_distill'
+  | 'tool_program'
+  | 'tool_laser_cut'
+  | 'tool_assemble'
+  | 'tool_calibrate'
+  | 'tool_enchant'
+  | 'tool_carve'
+  | 'tool_stitch'
+  | 'tool_grind'
+  | 'tool_finish'
   | 'gelato'
   | 'spaghetti'
   | 'pizza'
@@ -268,7 +287,26 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   const c = category.toLowerCase().trim();
   const e = emoji.trim();
 
-  // High-Specificity Natural Keyword Overrides (checked first)
+  // 1. Dedicated Crafting Tool Archetypes (highest priority when matching tools or actions)
+  if (n === 'smelt' || n === 'cast' || n === 'quench' || n === 'temper' || n === 'purify_metal' || n === 'calcine' || n.includes('smelt')) return 'tool_smelt';
+  if (n === 'forge' || n === 'hammer' || n === 'rivet' || n === 'shape' || n === 'shaping' || n.includes('forge')) return 'tool_forge';
+  if (n === 'weld' || n === 'solder' || n.includes('weld')) return 'tool_weld';
+  if (n === 'knead' || n === 'whisk' || n.includes('knead') || n === 'roll') return 'tool_knead';
+  if (n === 'bake' || n.includes('bake') || n === 'oven') return 'tool_bake';
+  if (n === 'roast' || n === 'grill' || n === 'smoke' || n === 'caramelize' || n.includes('roast')) return 'tool_roast';
+  if (n === 'fry' || n === 'saute' || n.includes('fry')) return 'tool_fry';
+  if (n === 'distill' || n === 'condense' || n === 'filter' || n === 'brew' || n === 'steep' || (n.includes('distill') && !n.includes('hydro'))) return 'tool_distill';
+  if (n === 'program' || n === 'overclock' || n === 'tune' || n === 'charge' || n === 'energize' || n.includes('program')) return 'tool_program';
+  if (n === 'laser_cut' || n === 'print_3d' || n.includes('laser')) return 'tool_laser_cut';
+  if (n === 'assemble' || n === 'wire' || n === 'magnetize' || n === 'compress' || n.includes('assemble')) return 'tool_assemble';
+  if (n === 'calibrate' || n === 'measure' || n.includes('calibrate')) return 'tool_calibrate';
+  if (n === 'enchant' || n === 'empower' || n === 'summon' || n === 'charm' || n === 'channel' || n === 'inscribe' || n === 'bless' || n === 'curse' || n === 'alchemize' || n.includes('enchant')) return 'tool_enchant';
+  if (n === 'carve' || n === 'sand' || n === 'varnish' || n.includes('carve')) return 'tool_carve';
+  if (n === 'stitch' || n === 'weave' || n === 'weave_cloth' || n === 'laminate' || n === 'glue' || n.includes('stitch')) return 'tool_stitch';
+  if (n === 'grind' || n === 'crush' || n === 'shred' || n === 'extract' || n === 'dissolve' || n.includes('grind') || n.includes('crush')) return 'tool_grind';
+  if (n === 'finish_item' || n === 'serve' || n === 'showcase' || n.includes('finish')) return 'tool_finish';
+
+  // 2. High-Specificity Natural Keyword Overrides (checked next)
   if (n.includes('gelato') || n.includes('ice cream') || n.includes('sorbet') || n.includes('sundae') || n.includes('parfait') || n.includes('cone')) return 'gelato';
   if (n.includes('spaghetti') || n.includes('meatball') || n.includes('pasta') || n.includes('lasagna') || n.includes('ravioli') || n.includes('fettuccine') || n.includes('noodle')) return 'spaghetti';
   if (n.includes('pizza') || n.includes('calzone') || n.includes('flatbread')) return 'pizza';
@@ -479,6 +517,15 @@ export function addAutomaticOutlines(g: PixelGrid24) {
 }
 
 export function generateArchetypePixelMatrix(
+  archetype: ItemArchetype,
+  hash: number,
+  itemName: string = '',
+  itemCategory: string = ''
+): PixelGrid24 {
+  return generateArchetypePixelMatrix64(archetype, hash, itemName, itemCategory);
+}
+
+export function generateArchetypePixelMatrixLegacy24(
   archetype: ItemArchetype,
   hash: number,
   itemName: string = '',
@@ -1443,9 +1490,9 @@ export function drawProceduralSprite(
   ctx.restore();
 
   // 3. Obtain Matrix (from background cache or procedural synthesizer)
-  const matrixSize = 24;
   const cached = getCachedSprite(config.name);
   const pixelMatrix = (cached && cached.matrix) ? cached.matrix : generateArchetypePixelMatrix(archetype, hash, config.name, config.category);
+  const matrixSize = pixelMatrix.length || 64;
 
   // Find exact bounding box of drawn pixels for optimal auto-centering & filling
   let minX = matrixSize;
@@ -1472,17 +1519,17 @@ export function drawProceduralSprite(
   const spriteH = maxY - minY + 1;
   const maxDim = Math.max(spriteW, spriteH);
 
-  // Auto-scale so the actual pixel art fills ~84% of the canvas
-  const targetArea = sizePx * 0.84;
-  const pixelScale = Math.max(1, Math.floor(targetArea / maxDim));
+  // Auto-scale so the actual pixel art fills ~88% of the canvas with crisp subpixel or integer precision
+  const targetArea = sizePx * 0.88;
+  const pixelScale = Math.max(0.25, targetArea / maxDim);
 
   // Compute exact center offset for the bounded sprite
   const renderedW = spriteW * pixelScale;
   const renderedH = spriteH * pixelScale;
-  const startX = Math.floor((sizePx - renderedW) / 2) - minX * pixelScale;
-  const startY = Math.floor((sizePx - renderedH) / 2) - minY * pixelScale;
+  const startX = (sizePx - renderedW) / 2 - minX * pixelScale;
+  const startY = (sizePx - renderedH) / 2 - minY * pixelScale;
 
-  // 16-Color Material Palette
+  // 24-Color High-Definition Material Palette
   const colorMap: Record<number, string> = {
     0: 'transparent',
     1: '#040711', // Deep Dark RPG Contour Outline
@@ -1490,31 +1537,38 @@ export function drawProceduralSprite(
     3: primaryColor, // Base Mid-tone
     4: shadeColor(primaryColor, 40), // Specular Highlight
     5: '#ffffff', // Radiant Core Pure White
-    6: '#334155', // Secondary Dark (Gunmetal / Deep Walnut)
-    7: '#94a3b8', // Secondary Light (Silver / Polished Steel)
-    8: '#ef4444', // Ruby / Crimson Plasma
-    9: '#f87171', // Gem Specular
-    10: '#f59e0b', // Imperial Gold / Honey Butter
-    11: '#10b981', // Emerald Nature / Spore Green
-    12: '#38bdf8', // Ice Sheen / Distillation Glass
-    13: '#c084fc', // Arcane Purple Rune
-    14: '#06b6d4', // Cyan Plasma Arc
-    15: '#0f172a', // Ambient Shadow
+    6: '#1e293b', // Secondary Dark (Carbon / Deep Walnut / Slate)
+    7: '#64748b', // Secondary Mid (Silver / Steel)
+    8: '#cbd5e1', // Secondary Light (Platinum / Chrome)
+    9: '#ef4444', // Ruby / Crimson / Fire Red
+    10: '#f97316', // Flame Orange / Amber
+    11: '#f59e0b', // Imperial Gold / Honey Butter
+    12: '#10b981', // Emerald Nature / Spore Green
+    13: '#8b5cf6', // Arcane Purple Rune
+    14: '#06b6d4', // Electric Cyan / Plasma Arc
+    15: '#92400e', // Warm Wood Brown / Leather
+    16: '#fef3c7', // Soft Cream / Pasta Ivory
+    17: '#090d16', // Deep Ambient Shadow
+    18: '#eab308', // Electric Yellow
+    19: '#ec4899', // Neon Pink
+    20: '#0f172a', // Midnight Navy
+    21: '#dc2626', // Rich Red Marinara
+    22: '#059669', // Fresh Mint Green
+    23: '#78350f', // Roasted Brown Crust
   };
 
-  // Render Crisp Pixels
+  // Render Crisp Pixels without hairline gaps
   for (let y = 0; y < matrixSize; y++) {
     for (let x = 0; x < matrixSize; x++) {
       const val = pixelMatrix[y][x];
       if (val === 0) continue;
 
       ctx.fillStyle = colorMap[val] || primaryColor;
-      ctx.fillRect(
-        startX + x * pixelScale,
-        startY + y * pixelScale,
-        pixelScale,
-        pixelScale
-      );
+      const px = Math.floor(startX + x * pixelScale);
+      const py = Math.floor(startY + y * pixelScale);
+      const pw = Math.max(1, Math.ceil(startX + (x + 1) * pixelScale) - px);
+      const ph = Math.max(1, Math.ceil(startY + (y + 1) * pixelScale) - py);
+      ctx.fillRect(px, py, pw, ph);
     }
   }
 

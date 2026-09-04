@@ -22,16 +22,20 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  Firestore
+  Firestore,
+  setLogLevel
 } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
+
+// Keep console clean from harmless offline background retry messages
+setLogLevel('error');
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let firestoreInstance: Firestore;
 try {
   firestoreInstance = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
   }, firebaseConfig.firestoreDatabaseId);
 } catch {
   firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);

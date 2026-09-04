@@ -12,12 +12,14 @@ interface SpriteInspectorModalProps {
   item: FinishedItem | null;
   isOpen: boolean;
   onClose: () => void;
+  onOpenUploader?: (itemName: string) => void;
 }
 
 export function SpriteInspectorModal({
   item,
   isOpen,
   onClose,
+  onOpenUploader,
 }: SpriteInspectorModalProps) {
   const [activeRarity, setActiveRarity] = useState<'Common' | 'Rare' | 'Epic' | 'Legendary'>(
     item?.rarity || 'Epic'
@@ -73,6 +75,35 @@ export function SpriteInspectorModal({
             <button onClick={handleDownloadPng} className="download-sprite-btn">
               💾 Download Sprite (PNG)
             </button>
+
+            {onOpenUploader && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenUploader(item.name);
+                }}
+                className="upload-custom-sprite-btn"
+                style={{
+                  marginTop: '8px',
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  border: '1px solid #38bdf8',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 0 10px rgba(56, 189, 248, 0.3)',
+                }}
+              >
+                <span>🎨 Upload Custom Sprite</span>
+              </button>
+            )}
           </div>
 
           <div className="inspector-meta-column">

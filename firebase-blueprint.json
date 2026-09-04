@@ -63,6 +63,21 @@
         "createdAt": { "type": "string", "description": "Timestamp" }
       },
       "required": ["id", "userId", "name", "displayName", "emoji"]
+    },
+    "CustomSprite": {
+      "title": "CustomSprite",
+      "description": "User uploaded custom sprite replacement visible to all players",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Normalized target sprite key" },
+        "targetName": { "type": "string", "description": "Target item or tool name" },
+        "targetType": { "type": "string", "description": "Type of target: item, tool, ingredient, or any" },
+        "imageUrl": { "type": "string", "description": "Base64 data URL or image URL of the sprite" },
+        "authorId": { "type": "string", "description": "Uploader User ID" },
+        "authorName": { "type": "string", "description": "Uploader display name" },
+        "updatedAt": { "type": "string", "description": "Last update ISO timestamp" }
+      },
+      "required": ["id", "targetName", "imageUrl"]
     }
   },
   "firestore": {
@@ -81,6 +96,10 @@
     "/users/{userId}/custom_methods/{methodId}": {
       "schema": "CustomMethod",
       "description": "Custom or discovered crafting methods"
+    },
+    "/custom_sprites/{spriteId}": {
+      "schema": "CustomSprite",
+      "description": "Global custom uploaded sprites replacing default procedural sprites for everyone"
     }
   }
 }

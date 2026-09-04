@@ -12,6 +12,7 @@ interface ShowcaseGalleryProps {
   selectedItemId: string | null;
   onSelectItem: (item: FinishedItem) => void;
   onInspectItem?: (item: FinishedItem) => void;
+  onUploadSprite?: (item: FinishedItem) => void;
   onDeleteItem?: (itemId: string) => void;
 }
 
@@ -20,6 +21,7 @@ export function ShowcaseGallery({
   selectedItemId,
   onSelectItem,
   onInspectItem,
+  onUploadSprite,
   onDeleteItem,
 }: ShowcaseGalleryProps) {
   if (items.length === 0) return null;
@@ -70,6 +72,20 @@ export function ShowcaseGallery({
               </div>
 
               <div className="showcase-tile-actions">
+                {onUploadSprite && (
+                  <button
+                    type="button"
+                    className="tile-action-btn upload-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUploadSprite(item);
+                    }}
+                    title="Upload Custom Sprite Replacement (Saves for Everyone)"
+                    style={{ color: '#38bdf8' }}
+                  >
+                    📷
+                  </button>
+                )}
                 {onInspectItem && (
                   <button
                     type="button"

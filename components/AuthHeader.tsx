@@ -15,6 +15,8 @@ interface AuthHeaderProps {
   onLogout: () => Promise<void>;
   savedItemsCount: number;
   customIngredientsCount: number;
+  onOpenSpriteStudio?: () => void;
+  customSpritesCount?: number;
 }
 
 export function AuthHeader({
@@ -26,6 +28,8 @@ export function AuthHeader({
   onLogout,
   savedItemsCount,
   customIngredientsCount,
+  onOpenSpriteStudio,
+  customSpritesCount = 0,
 }: AuthHeaderProps) {
   const [loggingIn, setLoggingIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -88,6 +92,45 @@ export function AuthHeader({
       </div>
 
       <div className="auth-actions-group">
+        {onOpenSpriteStudio && (
+          <button
+            type="button"
+            onClick={onOpenSpriteStudio}
+            className="auth-custom-sprites-btn"
+            title="Upload custom sprites to replace game items (saves for everyone to see)"
+            style={{
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid #38bdf8',
+              color: '#38bdf8',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span>🎨 Sprites</span>
+            {customSpritesCount > 0 && (
+              <span
+                style={{
+                  background: '#38bdf8',
+                  color: '#040d1a',
+                  borderRadius: '10px',
+                  padding: '1px 6px',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                }}
+              >
+                {customSpritesCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {errorMsg && <span className="auth-error-chip">{errorMsg}</span>}
 
         {authLoading ? (

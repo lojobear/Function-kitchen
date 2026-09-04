@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { drawProceduralSprite, getItemColor, RARITY_PALETTES, SpriteConfig } from '../lib/sprite-engine';
 import { enqueueBackgroundSpriteGeneration, onSpriteUpdated } from '../lib/background-sprite-painter';
+import { getCustomSprite, subscribeCustomSprites, CustomSpriteRecord } from '../lib/custom-sprite-service';
 
 export interface ItemSpriteProps {
   name: string;
@@ -18,6 +19,8 @@ export interface ItemSpriteProps {
   showRarityBadge?: boolean;
   interactive?: boolean;
   onClick?: () => void;
+  onUploadSprite?: () => void;
+  showCustomBadge?: boolean;
 }
 
 export function ItemSprite({
@@ -31,15 +34,27 @@ export function ItemSprite({
   showRarityBadge = false,
   interactive = false,
   onClick,
+  onUploadSprite,
+  showCustomBadge = true,
 }: ItemSpriteProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hovered, setHovered] = useState(false);
   const [, setRenderTrigger] = useState(0);
+  const [customSprite, setCustomSprite] = useState<CustomSpriteRecord | undefined>(() => getCustomSprite(name));
 
   // Size mapping
   const pxSize = size === 'large' ? 140 : size === 'medium' ? 84 : size === 'small' ? 48 : 36;
   const computedColor = color || getItemColor({ name, category, color, rarity });
   const palette = RARITY_PALETTES[rarity] || RARITY_PALETTES.Common;
+
+  // Subscribe to real-time custom sprites
+  useEffect(() => {
+    setCustomSprite(getCustomSprite(name));
+    const unsubscribe = subscribeCustomSprites(() => {
+      setCustomSprite(getCustomSprite(name));
+    });
+    return unsubscribe;
+  }, [name]);
 
   // Enqueue background generation immediately (non-blocking) and subscribe to updates
   useEffect(() => {
@@ -60,6 +75,52 @@ export function ItemSprite({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // If there is a custom uploaded sprite from cloud storage, render it!
+    if (customSprite?.imageUrl) {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      canvas.width = pxSize;
+      canvas.height = pxSize;
+
+      // Dark radial background
+      const bgGrad = ctx.createRadialGradient(
+        pxSize / 2, 1, pxSize / 2,
+        pxSize / 2, pxSize / 2, pxSize * 0.7
+      );
+      bgGrad.addColorStop(0, '#151d2f');
+      bgGrad.addColorStop(0.7, '#0a0e18');
+      bgGrad.addColorStop(1, '#03060c');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, pxSize, pxSize);
+
+      // Halo glow
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pxSize / 2, pxSize / 2, pxSize * 0.38, 0, Math.PI * 2);
+      ctx.fillStyle = `${computedColor}2b`;
+      ctx.shadowColor = computedColor;
+      ctx.shadowBlur = pxSize >= 80 ? 16 : 8;
+      ctx.fill();
+      ctx.restore();
+
+      // Render custom image pixelated and fitted
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.imageSmoothingEnabled = false;
+        const pad = Math.floor(pxSize * 0.08);
+        const drawArea = pxSize - pad * 2;
+        const scale = Math.min(drawArea / img.width, drawArea / img.height);
+        const dw = Math.floor(img.width * scale);
+        const dh = Math.floor(img.height * scale);
+        const dx = Math.floor((pxSize - dw) / 2);
+        const dy = Math.floor((pxSize - dh) / 2);
+        ctx.drawImage(img, dx, dy, dw, dh);
+      };
+      img.src = customSprite.imageUrl;
+      return;
+    }
+
     const spriteConfig: SpriteConfig = {
       name,
       emoji,
@@ -69,7 +130,7 @@ export function ItemSprite({
     };
 
     drawProceduralSprite(canvas, spriteConfig, pxSize);
-  }, [name, emoji, category, computedColor, rarity, pxSize]);
+  }, [name, emoji, category, computedColor, rarity, pxSize, customSprite]);
 
   return (
     <div
@@ -84,7 +145,7 @@ export function ItemSprite({
         overflow: 'hidden',
         background: '#090d16',
       }}
-      title={`${name} (${rarity})`}
+      title={`${name} (${rarity})${customSprite ? ' [Custom Community Sprite]' : ''}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
@@ -97,6 +158,60 @@ export function ItemSprite({
           display: 'block',
         }}
       />
+
+      {/* Custom Community Sprite indicator */}
+      {customSprite && showCustomBadge && size !== 'thumb' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            background: 'rgba(56, 189, 248, 0.9)',
+            color: '#040d1a',
+            fontSize: size === 'large' ? '9px' : '8px',
+            fontWeight: 800,
+            padding: '1px 5px',
+            borderRadius: '4px',
+            letterSpacing: '0.4px',
+            pointerEvents: 'none',
+            boxShadow: '0 0 6px rgba(56, 189, 248, 0.6)',
+          }}
+          title={`Custom sprite uploaded by ${customSprite.authorName || 'Artisan'}`}
+        >
+          CUSTOM
+        </div>
+      )}
+
+      {/* Quick Upload Button on hover for large/medium sprites */}
+      {onUploadSprite && hovered && (size === 'large' || size === 'medium') && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUploadSprite();
+          }}
+          style={{
+            position: 'absolute',
+            top: '4px',
+            left: '4px',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            color: '#fff',
+            fontSize: '10px',
+            fontWeight: 600,
+            padding: '2px 6px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '3px',
+            zIndex: 5,
+          }}
+          title="Upload or replace sprite"
+        >
+          📷 Edit
+        </button>
+      )}
 
       {showRarityBadge && size === 'large' && (
         <div

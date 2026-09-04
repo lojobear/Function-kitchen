@@ -10,9 +10,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isValidCustomSprite(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.targetName is string && data.targetName.size() > 0 && data.targetName.size() <= 128
+        && data.imageUrl is string && data.imageUrl.size() > 0 && data.imageUrl.size() <= 350000;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Community Custom Sprites (Visible to everyone)
+    match /custom_sprites/{spriteId} {
+      allow read: if true;
+      allow create, update: if isValidCustomSprite(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     // User Profile
