@@ -286,25 +286,28 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   const n = name.toLowerCase().trim();
   const c = category.toLowerCase().trim();
   const e = emoji.trim();
+  const isToolContext = /tool|action|process|method/.test(c);
+  const isProcessName = (...names: string[]) =>
+    names.includes(n) || (isToolContext && names.some(processName => n.includes(processName)));
 
   // 1. Dedicated Crafting Tool Archetypes (highest priority when matching tools or actions)
-  if (n === 'smelt' || n === 'cast' || n === 'quench' || n === 'temper' || n === 'purify_metal' || n === 'calcine' || n.includes('smelt')) return 'tool_smelt';
-  if (n === 'forge' || n === 'hammer' || n === 'rivet' || n === 'shape' || n === 'shaping' || n.includes('forge')) return 'tool_forge';
-  if (n === 'weld' || n === 'solder' || n.includes('weld')) return 'tool_weld';
-  if (n === 'knead' || n === 'whisk' || n.includes('knead') || n === 'roll') return 'tool_knead';
-  if (n === 'bake' || n.includes('bake') || n === 'oven') return 'tool_bake';
-  if (n === 'roast' || n === 'grill' || n === 'smoke' || n === 'caramelize' || n.includes('roast')) return 'tool_roast';
-  if (n === 'fry' || n === 'saute' || n.includes('fry')) return 'tool_fry';
-  if (n === 'distill' || n === 'condense' || n === 'filter' || n === 'brew' || n === 'steep' || (n.includes('distill') && !n.includes('hydro'))) return 'tool_distill';
-  if (n === 'program' || n === 'overclock' || n === 'tune' || n === 'charge' || n === 'energize' || n.includes('program')) return 'tool_program';
-  if (n === 'laser_cut' || n === 'print_3d' || n.includes('laser')) return 'tool_laser_cut';
-  if (n === 'assemble' || n === 'wire' || n === 'magnetize' || n === 'compress' || n.includes('assemble')) return 'tool_assemble';
-  if (n === 'calibrate' || n === 'measure' || n.includes('calibrate')) return 'tool_calibrate';
-  if (n === 'enchant' || n === 'empower' || n === 'summon' || n === 'charm' || n === 'channel' || n === 'inscribe' || n === 'bless' || n === 'curse' || n === 'alchemize' || n.includes('enchant')) return 'tool_enchant';
-  if (n === 'carve' || n === 'sand' || n === 'varnish' || n.includes('carve')) return 'tool_carve';
-  if (n === 'stitch' || n === 'weave' || n === 'weave_cloth' || n === 'laminate' || n === 'glue' || n.includes('stitch')) return 'tool_stitch';
-  if (n === 'grind' || n === 'crush' || n === 'shred' || n === 'extract' || n === 'dissolve' || n.includes('grind') || n.includes('crush')) return 'tool_grind';
-  if (n === 'finish_item' || n === 'serve' || n === 'showcase' || n.includes('finish')) return 'tool_finish';
+  if (isProcessName('smelt', 'cast', 'quench', 'temper', 'purify_metal', 'calcine')) return 'tool_smelt';
+  if (isProcessName('forge', 'hammer', 'rivet', 'shape', 'shaping')) return 'tool_forge';
+  if (isProcessName('weld', 'solder')) return 'tool_weld';
+  if (isProcessName('knead', 'whisk', 'roll')) return 'tool_knead';
+  if (isProcessName('bake', 'oven')) return 'tool_bake';
+  if (isProcessName('roast', 'grill', 'smoke', 'caramelize')) return 'tool_roast';
+  if (isProcessName('fry', 'saute')) return 'tool_fry';
+  if (isProcessName('distill', 'condense', 'filter', 'brew', 'steep')) return 'tool_distill';
+  if (isProcessName('program', 'overclock', 'tune', 'charge', 'energize')) return 'tool_program';
+  if (isProcessName('laser_cut', 'print_3d')) return 'tool_laser_cut';
+  if (isProcessName('assemble', 'wire', 'magnetize', 'compress')) return 'tool_assemble';
+  if (isProcessName('calibrate', 'measure')) return 'tool_calibrate';
+  if (isProcessName('enchant', 'empower', 'summon', 'charm', 'channel', 'inscribe', 'bless', 'curse', 'alchemize')) return 'tool_enchant';
+  if (isProcessName('carve', 'sand', 'varnish')) return 'tool_carve';
+  if (isProcessName('stitch', 'weave', 'weave_cloth', 'laminate', 'glue')) return 'tool_stitch';
+  if (isProcessName('grind', 'crush', 'shred', 'extract', 'dissolve')) return 'tool_grind';
+  if (isProcessName('finish_item', 'serve', 'showcase')) return 'tool_finish';
 
   // 2. High-Specificity Natural Keyword Overrides (checked next)
   if (n.includes('gelato') || n.includes('ice cream') || n.includes('sorbet') || n.includes('sundae') || n.includes('parfait') || n.includes('cone')) return 'gelato';
@@ -406,7 +409,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   if (n.includes('dagger') || n.includes('knife') || n.includes('kunai') || n.includes('stiletto') || n.includes('shiv')) return 'dagger';
   if (n.includes('sword') || n.includes('blade') || n.includes('katana') || n.includes('saber') || n.includes('rapier') || n.includes('claymore') || n.includes('broadsword')) return 'sword';
   if (n.includes('axe') || n.includes('hatchet') || n.includes('cleaver') || n.includes('tomahawk')) return 'axe';
-  if (n.includes('hammer') || n.includes('mace') || n.includes('warhammer') || n.includes('mallet') || n.includes('crush') || n.includes('forge')) return 'hammer';
+  if (n.includes('hammer') || n.includes('mace') || n.includes('warhammer') || n.includes('mallet')) return 'hammer';
   if (n.includes('crossbow') || n.includes('arbalest')) return 'crossbow';
   if (n.includes('bow') || n.includes('arrow') || n.includes('longbow')) return 'bow';
   if (n.includes('blaster') || n.includes('laser') || n.includes('gun') || n.includes('rifle') || n.includes('pistol') || n.includes('cannon') || n.includes('plasma')) return 'blaster';
@@ -432,7 +435,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('ramen') || n.includes('soup') || n.includes('stew') || n.includes('broth') || n.includes('bowl')) return 'food_bowl';
   if (n.includes('burger') || n.includes('sandwich') || n.includes('taco') || n.includes('burrito')) return 'burger';
-  if (n.includes('cake') || n.includes('pastry') || n.includes('pie') || n.includes('cookie') || n.includes('bake') || n.includes('donut')) return 'cake';
+  if (n.includes('cake') || n.includes('pastry') || n.includes('pie') || n.includes('cookie') || n.includes('donut')) return 'cake';
   if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq')) return 'meat';
   if (n.includes('bread') || n.includes('baguette') || n.includes('toast') || n.includes('flour') || n.includes('croissant')) return 'bread';
   if (n.includes('tea') || n.includes('coffee') || n.includes('drink') || n.includes('juice') || n.includes('mug') || n.includes('latte') || n.includes('cocktail') || n.includes('wine') || n.includes('beer')) return 'drink';
@@ -443,7 +446,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('core') || n.includes('reactor') || n.includes('quantum') || n.includes('fusion') || n.includes('engine')) return 'tech_core';
   if (n.includes('chip') || n.includes('cpu') || n.includes('circuit') || n.includes('microchip') || n.includes('processor')) return 'chip';
-  if (n.includes('battery') || n.includes('power cell') || n.includes('charge')) return 'battery';
+  if (n.includes('battery') || n.includes('power cell')) return 'battery';
   if (n.includes('robot') || n.includes('mech') || n.includes('android') || n.includes('golem')) return 'robot';
   if (n.includes('rocket') || n.includes('starship') || n.includes('shuttle')) return 'rocket';
   if (n.includes('watch') || n.includes('clock') || n.includes('timer')) return 'watch';
@@ -456,12 +459,12 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('key') || n.includes('lockpick')) return 'key';
   if (n.includes('chest') || n.includes('crate') || n.includes('box')) return 'chest';
-  if (n.includes('ingot') || n.includes('bar') || n.includes('alloy') || n.includes('smelt')) return 'ingot';
+  if (n.includes('ingot') || n.includes('bar') || n.includes('alloy')) return 'ingot';
   if (n.includes('ore') || n.includes('stone') || n.includes('rock') || n.includes('mineral')) return 'ore';
   if (n.includes('wood') || n.includes('log') || n.includes('timber') || n.includes('plank')) return 'wood';
   if (n.includes('cloth') || n.includes('fabric') || n.includes('silk') || n.includes('thread') || n.includes('leather') || n.includes('weave')) return 'cloth';
-  if (n.includes('anvil') || n.includes('weld')) return 'anvil';
-  if (n.includes('cut') || n.includes('shape') || n.includes('mold') || n.includes('tool')) return 'tool_craft';
+  if (n.includes('anvil')) return 'anvil';
+  if (n.includes('tool')) return 'tool_craft';
 
   if (n.includes('crystal') || n.includes('gem') || n.includes('diamond') || n.includes('ruby') || n.includes('emerald') || n.includes('sapphire')) return 'crystal';
   if (n.includes('fish') || n.includes('seafood') || n.includes('salmon') || n.includes('tuna')) return 'fish';

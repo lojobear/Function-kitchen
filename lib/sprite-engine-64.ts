@@ -4,8 +4,8 @@
  */
 
 /**
- * 64-Bit High-Definition Procedural Pixel Art Sprite Engine
- * Renders exquisite 64x64 pixel art matrices with rich 64-bit color fidelity,
+ * 64x64 High-Definition Procedural Pixel Art Sprite Engine
+ * Renders crisp 64x64 pixel art matrices with a rich limited palette,
  * dedicated tool archetypes, and authentic item representations.
  */
 
@@ -147,6 +147,107 @@ export function addAutomaticOutlines64(g: PixelMatrix64) {
   }
 }
 
+function getSemanticAccent64(itemName: string, itemCategory: string, hash: number): number {
+  const identity = `${itemName} ${itemCategory}`.toLowerCase();
+  if (/fire|flame|ember|magma|solar|hot/.test(identity)) return 10;
+  if (/ice|frost|water|ocean|aqua|cryo/.test(identity)) return 14;
+  if (/nature|leaf|herb|moss|wood|plant|bio/.test(identity)) return 12;
+  if (/magic|arcane|mana|void|shadow|enchanted/.test(identity)) return 13;
+  if (/electric|lightning|energy|plasma|power|cyber|quantum/.test(identity)) return 18;
+  if (/royal|gold|sun|legend|divine/.test(identity)) return 11;
+  if (/blood|ruby|crimson|red/.test(identity)) return 9;
+  if (/coffee|espresso|cocoa|wood|leather|earth/.test(identity)) return 23;
+  return [9, 10, 11, 12, 13, 14, 18, 19, 22, 23][hash % 10];
+}
+
+/**
+ * Adds name-seeded material marks without distorting the handcrafted
+ * archetype. Two swords remain readable as swords, but no longer share every
+ * highlight, inlay, spark, rune, or surface band.
+ */
+function applyArtisanDetailPass64(
+  g: PixelMatrix64,
+  rng: SpritePRNG,
+  hash: number,
+  itemName: string,
+  itemCategory: string,
+  archetype: ItemArchetype
+) {
+  let minX = 63;
+  let minY = 63;
+  let maxX = 0;
+  let maxY = 0;
+  let occupied = 0;
+
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      if (g[y][x] === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      occupied += 1;
+    }
+  }
+  if (occupied === 0) return;
+
+  const accent = getSemanticAccent64(itemName, itemCategory, hash);
+  const detailTarget = archetype.startsWith('tool_') ? 22 : 16;
+  let details = 0;
+
+  // A restrained diagonal material inlay creates a coherent surface pattern
+  // instead of random noise. Its spacing and phase come from the full name.
+  const bandGap = 6 + (hash % 4);
+  const bandPhase = (hash >>> 5) % bandGap;
+  let bandPixels = 0;
+  for (let y = minY + 2; y <= maxY - 2 && bandPixels < 42; y++) {
+    for (let x = minX + 2; x <= maxX - 2 && bandPixels < 42; x++) {
+      const isInterior = g[y][x] > 1
+        && g[y][x - 1] > 0
+        && g[y][x + 1] > 0
+        && g[y - 1][x] > 0
+        && g[y + 1][x] > 0;
+      if (!isInterior) continue;
+      if ((x + y + bandPhase) % bandGap !== 0) continue;
+      if (((x * 3 + y + hash) & 3) !== 0) continue;
+      g[y][x] = accent;
+      bandPixels += 1;
+    }
+  }
+
+  for (let attempt = 0; attempt < detailTarget * 14 && details < detailTarget; attempt++) {
+    const x = rng.int(Math.max(1, minX + 1), Math.min(62, maxX - 1));
+    const y = rng.int(Math.max(1, minY + 1), Math.min(62, maxY - 1));
+    const isInterior = g[y][x] > 1
+      && g[y][x - 1] > 0
+      && g[y][x + 1] > 0
+      && g[y - 1][x] > 0
+      && g[y + 1][x] > 0;
+    if (!isInterior) continue;
+
+    g[y][x] = details % 5 === 0 ? 5 : accent;
+    if (details % 4 === 0 && x + 1 < maxX && g[y][x + 1] > 1) {
+      g[y][x + 1] = accent;
+    }
+    details += 1;
+  }
+
+  // Small process particles make action tiles feel active and are positioned
+  // from the full process name, rather than copied from a shared badge.
+  if (archetype.startsWith('tool_')) {
+    const particleCount = 3 + (hash % 4);
+    for (let i = 0; i < particleCount; i++) {
+      const side = rng.bool() ? -1 : 1;
+      const x = side < 0
+        ? Math.max(3, minX - rng.int(3, 8))
+        : Math.min(60, maxX + rng.int(3, 8));
+      const y = Math.max(3, Math.min(60, minY + rng.int(0, Math.max(2, maxY - minY))));
+      setP64(g, x, y, accent);
+      if (i === 0) setP64(g, x + (side < 0 ? -1 : 1), y - 1, 5);
+    }
+  }
+}
+
 /**
  * Generate high-definition 64x64 pixel art matrix for any archetype
  */
@@ -162,7 +263,7 @@ export function generateArchetypePixelMatrix64(
 
   switch (archetype) {
     // ========================================================================
-    // CRAFTING TOOLS & PROCESSES (Accurate, Dedicated 64-Bit Sprites)
+    // CRAFTING TOOLS & PROCESSES (Accurate, Dedicated 64x64 Sprites)
     // ========================================================================
 
     case 'tool_smelt': {
@@ -1914,7 +2015,7 @@ export function generateArchetypePixelMatrix64(
     // Dynamic Procedural Fallback: Authentic Detailed Item (NEVER plain sphere!)
     // ========================================================================
     default: {
-      const shapeType = rng.int(0, 4);
+      const shapeType = rng.int(0, 7);
 
       if (shapeType === 0) {
         // Faceted Gem Cluster / Mineral Crystal Shards
@@ -1939,16 +2040,53 @@ export function generateArchetypePixelMatrix64(
         fillRect64(g, 20, 24, 24, 16, 3);
         fillHLine64(g, 20, 43, 24, 5);
         fillRect64(g, 24, 28, 16, 8, 4);
-      } else {
+      } else if (shapeType === 3) {
         // Alchemical Glass Vial / Essence Flask
         fillCircle64(g, 32, 38, 12, 3);
         fillRect64(g, 29, 22, 6, 12, 8);
         fillCircle64(g, 32, 36, 8, 4);
         setP64(g, 30, 30, 5);
+      } else if (shapeType === 4) {
+        // Compact clockwork mechanism with visible gears and feet
+        fillRect64(g, 16, 20, 32, 28, 6);
+        fillRect64(g, 20, 24, 24, 18, 3);
+        drawCircleRing64(g, 27, 33, 7, 11, 2);
+        drawCircleRing64(g, 38, 31, 5, 8, 2);
+        fillCircle64(g, 27, 33, 2, 5);
+        fillCircle64(g, 38, 31, 1.5, 5);
+        fillRect64(g, 19, 48, 7, 5, 7);
+        fillRect64(g, 38, 48, 7, 5, 7);
+      } else if (shapeType === 5) {
+        // Inscribed component tablet with a central maker's seal
+        fillRect64(g, 16, 12, 32, 42, 6);
+        fillRect64(g, 20, 16, 24, 34, 3);
+        drawCircleRing64(g, 32, 29, 9, 13, 2);
+        drawLine64(g, 25, 44, 39, 44, 8);
+        drawLine64(g, 27, 48, 37, 48, 7);
+        fillCircle64(g, 32, 29, 3, 5);
+      } else if (shapeType === 6) {
+        // Bound artisan pouch containing a botanical or powdered material
+        fillCircle64(g, 32, 39, 15, 15);
+        fillRect64(g, 24, 23, 16, 9, 15);
+        drawLine64(g, 22, 29, 42, 29, 11);
+        drawLine64(g, 31, 23, 27, 16, 12);
+        drawLine64(g, 33, 23, 38, 16, 12);
+        fillCircle64(g, 27, 39, 3, 22);
+        fillCircle64(g, 36, 42, 2, 18);
+      } else {
+        // Asymmetric crafted implement, distinct from gems and potion bottles
+        drawLine64(g, 16, 53, 39, 23, 15);
+        drawLine64(g, 18, 54, 41, 24, 23);
+        fillCircle64(g, 43, 20, 11, 6);
+        fillCircle64(g, 42, 19, 7, 14);
+        drawLine64(g, 37, 14, 52, 10, 8);
+        fillCircle64(g, 16, 52, 4, 11);
       }
       break;
     }
   }
+
+  applyArtisanDetailPass64(g, rng, hash, itemName, itemCategory, archetype);
 
   // Always apply crisp 1px RPG dark contour outline
   addAutomaticOutlines64(g);

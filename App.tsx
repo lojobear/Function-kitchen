@@ -85,8 +85,9 @@ function getCategoryFromName(name: string): string {
   return analysis.suggestedCategory;
 }
 
-const MIN_STAGE_PROCESSING_MS = 1050;
-const RESULT_REVIEW_MS = 650;
+const INITIAL_PLANNING_MS = 1400;
+const MIN_STAGE_PROCESSING_MS = 2600;
+const RESULT_REVIEW_MS = 1300;
 
 interface CraftingProgress {
   step: number;
@@ -326,6 +327,7 @@ interface CombinationAgentProps {
   onSaveNewIngredient: (ing: Ingredient) => void;
   onSaveNewMethod: (method: KitchenAction) => void;
   allActions: KitchenAction[];
+  localMode: boolean;
 }
 
 function CombinationAgent({
@@ -350,6 +352,7 @@ function CombinationAgent({
   onSaveNewIngredient,
   onSaveNewMethod,
   allActions,
+  localMode,
 }: CombinationAgentProps) {
   const { generateContent, setConfig } = useGeminiAPIContext();
 
@@ -383,7 +386,7 @@ function CombinationAgent({
         category: analysis.suggestedCategory,
         tags: analysis.suggestedTags,
       };
-      enqueueBackgroundSpriteGeneration(newIng.name, newIng.category, newIng.emoji, 'Common', { preferAI: true });
+      enqueueBackgroundSpriteGeneration(newIng.name, newIng.category, newIng.emoji, 'Common');
       setInventory(prev => [newIng, ...prev]);
       onSaveNewIngredient(newIng);
     }
@@ -404,7 +407,7 @@ function CombinationAgent({
         category: analysis.suggestedCategory,
         tags: analysis.suggestedTags,
       };
-      enqueueBackgroundSpriteGeneration(newTool.name, newTool.category, newTool.emoji, 'Common', { preferAI: true });
+      enqueueBackgroundSpriteGeneration(newTool.name, newTool.category, newTool.emoji, 'Common');
       onSaveNewMethod(newTool);
     }
     setNewToolName('');
@@ -424,6 +427,14 @@ function CombinationAgent({
     action: KitchenAction,
     ingredientNames: string[]
   ): Promise<Ingredient | null> => {
+    const localResult = () => ({
+      name: `${action.displayName}ed ${ingredientNames.join(' & ')}`,
+      emoji: getFallbackEmoji(`${action.displayName}ed ${ingredientNames[0] || ''}`) || action.emoji,
+      category: 'Synthesized',
+    });
+
+    if (localMode) return localResult();
+
     try {
       const prompt = `Action: ${action.displayName}\nIngredients: ${ingredientNames.join(', ')}\n\nWhat is the crafted result of this action?`;
       const contents: Content[] = [{ role: 'user', parts: [{ text: prompt }] }];
@@ -438,13 +449,9 @@ function CombinationAgent({
       };
     } catch {
       // Quiet fallback when offline or quota reached
-      return {
-        name: `${action.displayName}ed ${ingredientNames.join(' & ')}`,
-        emoji: getFallbackEmoji(`${action.displayName}ed ${ingredientNames[0] || ''}`) || action.emoji,
-        category: 'Synthesized',
-      };
+      return localResult();
     }
-  }, [generateContent]);
+  }, [generateContent, localMode]);
 
   useEffect(() => {
     onExecuteActionRef.current = executeCombination;
@@ -487,8 +494,7 @@ function CombinationAgent({
         newIngredient.name,
         newIngredient.category,
         newIngredient.emoji,
-        'Common',
-        { preferAI: true }
+        'Common'
       );
       setTimeline(prev => prev.map(entry =>
         entry.id === timelineId ? { ...entry, result: newIngredient } : entry
@@ -824,7 +830,7 @@ function CraftingAgent({
           category: toolAnalysis.suggestedCategory,
           tags: toolAnalysis.suggestedTags,
         };
-        enqueueBackgroundSpriteGeneration(action.name, action.category, action.emoji, 'Common', { preferAI: true });
+        enqueueBackgroundSpriteGeneration(action.name, action.category, action.emoji, 'Common');
         onSaveNewMethod(action);
       }
 
@@ -844,7 +850,7 @@ function CraftingAgent({
             category: ingAnalysis.suggestedCategory,
             tags: ingAnalysis.suggestedTags,
           };
-          enqueueBackgroundSpriteGeneration(newMaterial.name, newMaterial.category, newMaterial.emoji, 'Common', { preferAI: true });
+          enqueueBackgroundSpriteGeneration(newMaterial.name, newMaterial.category, newMaterial.emoji, 'Common');
           validatedIngredients.push(reqName);
           newItemsToCreate.push(newMaterial);
           onSaveNewIngredient(newMaterial);
@@ -899,8 +905,7 @@ function CraftingAgent({
           newIngredient.name,
           newIngredient.category,
           newIngredient.emoji,
-          'Common',
-          { preferAI: true }
+          'Common'
         );
 
         setTimeline(prev => prev.map(entry =>
@@ -1118,7 +1123,7 @@ function KitchenAppContainer() {
       category: category,
       color: color,
       tags: analysis.suggestedTags,
-      description: desc || `A masterfully synthesized ${name} created through AI tool function calling.`,
+      description: desc || `A masterfully synthesized ${name} created through paced workshop tool stages.`,
       toolsUsed: usedToolsSessionRef.current.length > 0 ? [...usedToolsSessionRef.current] : ['finish_item'],
       ingredientsUsed: usedMaterialsSessionRef.current.length > 0 ? [...usedMaterialsSessionRef.current] : [name],
       createdAt: new Date(),
@@ -1127,14 +1132,16 @@ function KitchenAppContainer() {
     setFinishedItem(newItem);
     saveFinishedItem(newItem);
     setIsCrafting(false);
-    enqueueBackgroundSpriteGeneration(name, category, emoji, rarity, { preferAI: true });
+    enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
   }, [inventory, saveFinishedItem]);
 
-  const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
+  // Start in quota-free local mode. Gemini can be retried explicitly later,
+  // but crafting and sprite generation never need to stall on an exhausted key.
+  const [localCraftingMode, setLocalCraftingMode] = useState(true);
 
   const runFallbackCraftingSequence = useCallback(async (goal: string, isQuota: boolean = false) => {
     if (isQuota) {
-      setApiQuotaExceeded(true);
+      setLocalCraftingMode(true);
     }
     const lowerGoal = goal.toLowerCase();
 
@@ -1236,8 +1243,7 @@ function KitchenAppContainer() {
         newIngredient.name,
         newIngredient.category,
         newIngredient.emoji,
-        i === craftingSteps.length - 1 ? getRarityFromName(goal) : 'Common',
-        { preferAI: true }
+        i === craftingSteps.length - 1 ? getRarityFromName(goal) : 'Common'
       );
 
       setTimeline(prev => prev.map(entry =>
@@ -1278,7 +1284,11 @@ function KitchenAppContainer() {
     setCraftingProgress({ step: 0, total: null, phase: 'planning' });
 
     try {
-      if (sendCraftingMessageRef.current) {
+      await wait(INITIAL_PLANNING_MS);
+
+      if (localCraftingMode) {
+        await runFallbackCraftingSequence(goal, true);
+      } else if (sendCraftingMessageRef.current) {
         await sendCraftingMessageRef.current(
           `Please synthesize "${goal}" through a thoughtful, realistic, multi-step crafting sequence. Break the creation down into its logical component parts: refine raw materials, fabricate sub-assemblies with appropriate tools, assemble the sub-parts, and treat/calibrate the assembled artifact before calling finish_item.`
         );
@@ -1295,7 +1305,7 @@ function KitchenAppContainer() {
       );
       await runFallbackCraftingSequence(goal, isQuota);
     }
-  }, [runFallbackCraftingSequence]);
+  }, [localCraftingMode, runFallbackCraftingSequence]);
 
   return (
     <div className="app-container">
@@ -1318,14 +1328,14 @@ function KitchenAppContainer() {
         <div className="kitchen-header">
           <h1 className="kitchen-title">Function Call Crafting Forge</h1>
           <p className="kitchen-subtitle">
-            Input anything to synthesize with Gemini 3.7 Flash function calling, live procedural pixel sprites, and cloud persistence.
+            Input anything to synthesize through paced tool stages, local 64×64 pixel sprites, and cloud persistence.
           </p>
         </div>
 
-        {apiQuotaExceeded && (
+        {localCraftingMode && (
           <div className="api-quota-banner">
-            <span>⚡ <strong>Offline Fallback Crafting Mode Active</strong> — API quota limit reached. Tool sequencing, material combination, and pixel sprite rendering continue seamlessly!</span>
-            <button onClick={() => setApiQuotaExceeded(false)}>✕</button>
+            <span>⚙️ <strong>Local Artisan Mode</strong> — no Gemini quota is used. Crafting stages and detailed 64×64 sprites run entirely in the workshop.</span>
+            <button onClick={() => setLocalCraftingMode(false)}>Try Gemini</button>
           </div>
         )}
 
@@ -1386,6 +1396,7 @@ function KitchenAppContainer() {
           onSaveNewIngredient={addCustomIngredient}
           onSaveNewMethod={addCustomMethod}
           allActions={allActions}
+          localMode={localCraftingMode}
         />
         <GeminiDebug
           agentName="Alchemy Engine"
@@ -1431,12 +1442,12 @@ function KitchenAppContainer() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddIngredient={(ing) => {
-          enqueueBackgroundSpriteGeneration(ing.name, ing.category, ing.emoji, 'Common', { preferAI: true });
+          enqueueBackgroundSpriteGeneration(ing.name, ing.category, ing.emoji, 'Common');
           setInventory(prev => isDuplicateIngredient(ing.name, prev) ? prev : [ing, ...prev]);
           addCustomIngredient(ing);
         }}
         onAddMethod={(method) => {
-          enqueueBackgroundSpriteGeneration(method.name, method.category, method.emoji, 'Common', { preferAI: true });
+          enqueueBackgroundSpriteGeneration(method.name, method.category, method.emoji, 'Common');
           addCustomMethod(method);
         }}
       />
@@ -1462,7 +1473,7 @@ function KitchenAppContainer() {
 
       {/* Attribution Footer */}
       <footer className="attribution-footer">
-        Powered by Gemini 3.7 Flash Function Calling • Google AI Studio • Firebase Cloud Storage
+        Local 64×64 Sprite Workshop • Optional Gemini Function Calling • Firebase Cloud Storage
       </footer>
     </div>
   );
