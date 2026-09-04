@@ -26,6 +26,7 @@ import { useAuthAndForgeSync } from './hooks/use-auth-sync';
 import { analyzeItem } from './lib/tagging-engine';
 import { getItemColor } from './lib/sprite-engine';
 import { enqueueBackgroundSpriteGeneration } from './lib/background-sprite-painter';
+import { createCraftingPlan } from './lib/crafting-planner';
 
 import {
   Ingredient,
@@ -1143,68 +1144,37 @@ function KitchenAppContainer() {
     if (isQuota) {
       setLocalCraftingMode(true);
     }
-    const lowerGoal = goal.toLowerCase();
+    const plan = createCraftingPlan(goal);
+    const craftingSteps = plan.steps;
 
-    interface CraftingStep {
-      toolName: string;
-      inputs: string[];
-      outputName: string;
-      outputEmoji: string;
+    const sourcedMaterials: Ingredient[] = plan.sourceMaterials
+      .filter(name => !isDuplicateIngredient(name, inventory))
+      .map(name => {
+        const analysis = analyzeItem(name, { type: 'ingredient' });
+        return {
+          name,
+          emoji: analysis.primaryEmoji,
+          category: 'Sourced Material',
+          tags: analysis.suggestedTags,
+        };
+      });
+
+    if (sourcedMaterials.length > 0) {
+      setInventory(prev => {
+        const fresh = sourcedMaterials.filter(item => !isDuplicateIngredient(item.name, prev));
+        return [...fresh, ...prev];
+      });
+      sourcedMaterials.forEach(material => {
+        enqueueBackgroundSpriteGeneration(material.name, material.category, material.emoji, 'Common');
+        addCustomIngredient(material);
+      });
     }
 
-    let craftingSteps: CraftingStep[] = [];
-
-    if (lowerGoal.includes('sword') || lowerGoal.includes('blade') || lowerGoal.includes('katana') || lowerGoal.includes('saber') || lowerGoal.includes('laser sword')) {
-      craftingSteps = [
-        { toolName: 'smelt', inputs: ['iron ore', 'coal'], outputName: 'Refined Steel Ingot', outputEmoji: '🧱' },
-        { toolName: 'forge', inputs: ['Refined Steel Ingot', 'plasma core'], outputName: 'Tempered Blade Core', outputEmoji: '🗡️' },
-        { toolName: 'carve', inputs: ['wood log', 'leather strip'], outputName: 'Reinforced Grip & Hilt', outputEmoji: '🪵' },
-        { toolName: 'laser_cut', inputs: ['silicon', 'copper wire'], outputName: 'Focusing Emitter Matrix', outputEmoji: '⚡' },
-        { toolName: 'assemble', inputs: ['Tempered Blade Core', 'Reinforced Grip & Hilt', 'Focusing Emitter Matrix'], outputName: 'Hilted Blade Assembly', outputEmoji: '⚔️' },
-        { toolName: 'calibrate', inputs: ['Hilted Blade Assembly', 'crystal gem'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    } else if (lowerGoal.includes('potion') || lowerGoal.includes('elixir') || lowerGoal.includes('brew') || lowerGoal.includes('tonic') || lowerGoal.includes('invisibility')) {
-      craftingSteps = [
-        { toolName: 'crush', inputs: ['mana crystal', 'quartz'], outputName: 'Purified Arcane Powder', outputEmoji: '💎' },
-        { toolName: 'distill', inputs: ['Purified Arcane Powder', 'water'], outputName: 'Concentrated Mana Distillate', outputEmoji: '🧪' },
-        { toolName: 'extract', inputs: ['phoenix feather', 'starlight'], outputName: 'Radiant Spectral Essence', outputEmoji: '✨' },
-        { toolName: 'brew', inputs: ['Concentrated Mana Distillate', 'Radiant Spectral Essence', 'herb leaf'], outputName: 'Ethereal Alchemy Compound', outputEmoji: '🫖' },
-        { toolName: 'infuse', inputs: ['Ethereal Alchemy Compound', 'glass flask'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    } else if (lowerGoal.includes('watch') || lowerGoal.includes('robot') || lowerGoal.includes('core') || lowerGoal.includes('rocket') || lowerGoal.includes('shuttle') || lowerGoal.includes('quantum') || lowerGoal.includes('cybernetic')) {
-      craftingSteps = [
-        { toolName: 'laser_cut', inputs: ['silicon', 'copper wire'], outputName: 'High-Density Circuit Substrate', outputEmoji: '🟫' },
-        { toolName: 'program', inputs: ['microchip', 'circuit board'], outputName: 'Synaptic Micro-Controller Firmware', outputEmoji: '💻' },
-        { toolName: 'wire', inputs: ['High-Density Circuit Substrate', 'battery', 'fiber cable'], outputName: 'Powered Neural Power Unit', outputEmoji: '🔋' },
-        { toolName: 'forge', inputs: ['steel ingot', 'rubber'], outputName: 'Precision Chassis Housing', outputEmoji: '⚙️' },
-        { toolName: 'assemble', inputs: ['Synaptic Micro-Controller Firmware', 'Powered Neural Power Unit', 'Precision Chassis Housing', 'optical lens'], outputName: 'Calibrated Prototype Matrix', outputEmoji: '🛰️' },
-        { toolName: 'calibrate', inputs: ['Calibrated Prototype Matrix'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    } else if (lowerGoal.includes('pizza') || lowerGoal.includes('ramen') || lowerGoal.includes('burger') || lowerGoal.includes('cake') || lowerGoal.includes('noodle') || lowerGoal.includes('soup') || lowerGoal.includes('food') || lowerGoal.includes('truffle')) {
-      craftingSteps = [
-        { toolName: 'knead', inputs: ['flour', 'water', 'eggs'], outputName: 'Artisan Culinary Base Dough', outputEmoji: '🍞' },
-        { toolName: 'simmer', inputs: ['tomatoes', 'exotic spices', 'rich broth'], outputName: 'Aromatic Reduction Sauce', outputEmoji: '🍲' },
-        { toolName: 'shred', inputs: ['cheese', 'herb leaf'], outputName: 'Fine Garnish & Toppings', outputEmoji: '🧀' },
-        { toolName: 'bake', inputs: ['Artisan Culinary Base Dough', 'Aromatic Reduction Sauce', 'Fine Garnish & Toppings'], outputName: 'Oven-Baked Masterpiece Base', outputEmoji: '🍕' },
-        { toolName: 'garnish', inputs: ['Oven-Baked Masterpiece Base', 'exotic spices'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    } else if (lowerGoal.includes('wand') || lowerGoal.includes('staff') || lowerGoal.includes('grimoire') || lowerGoal.includes('ring') || lowerGoal.includes('amulet') || lowerGoal.includes('armor') || lowerGoal.includes('shield')) {
-      craftingSteps = [
-        { toolName: 'carve', inputs: ['wood log', 'crystal gem'], outputName: 'Resonant Artifact Core Shaft', outputEmoji: '🪵' },
-        { toolName: 'crystallize', inputs: ['mana crystal', 'fire essence'], outputName: 'Prismatic Focus Gem', outputEmoji: '💎' },
-        { toolName: 'bind', inputs: ['Resonant Artifact Core Shaft', 'phoenix feather', 'gold dust'], outputName: 'Bound Focus Relic Blank', outputEmoji: '🪄' },
-        { toolName: 'enchant', inputs: ['Bound Focus Relic Blank', 'Prismatic Focus Gem', 'starlight'], outputName: 'Channeled Astral Relic', outputEmoji: '⭐' },
-        { toolName: 'bless', inputs: ['Channeled Astral Relic'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    } else {
-      craftingSteps = [
-        { toolName: 'smelt', inputs: ['iron ore', 'coal'], outputName: 'Refined Metal Matrix', outputEmoji: '🧱' },
-        { toolName: 'mold', inputs: ['Refined Metal Matrix', 'rubber'], outputName: 'Structured Component Blank', outputEmoji: '⚙️' },
-        { toolName: 'synthesize', inputs: ['Structured Component Blank', 'copper wire'], outputName: 'Integrated Sub-Assembly Unit', outputEmoji: '🧩' },
-        { toolName: 'assemble', inputs: ['Integrated Sub-Assembly Unit', 'crystal gem'], outputName: 'Composite Base Assembly', outputEmoji: '📦' },
-        { toolName: 'polish', inputs: ['Composite Base Assembly'], outputName: goal, outputEmoji: getFallbackEmoji(goal) },
-      ];
-    }
+    setTimeline(prev => [...prev, {
+      id: `plan-${Date.now()}`,
+      timestamp: new Date(),
+      text: `🧭 ${plan.summary}`,
+    }]);
 
     for (let i = 0; i < craftingSteps.length; i++) {
       const step = craftingSteps[i];
@@ -1226,6 +1196,7 @@ function KitchenAppContainer() {
       setTimeline(prev => [...prev, {
         id: timelineId,
         timestamp: new Date(),
+        text: step.explanation,
         action: tool.name,
         ingredients: step.inputs,
         result: null,
@@ -1236,7 +1207,7 @@ function KitchenAppContainer() {
       const newIngredient: Ingredient = {
         name: step.outputName,
         emoji: step.outputEmoji || getFallbackEmoji(step.outputName),
-        category: i === craftingSteps.length - 1 ? 'Finished Creation' : 'Component Sub-Assembly',
+        category: step.category,
       };
 
       enqueueBackgroundSpriteGeneration(
@@ -1272,8 +1243,8 @@ function KitchenAppContainer() {
       text: `🎁 Logical Synthesis Complete: ${goal}`,
     }]);
 
-    handleFinishItem(goal);
-  }, [recordToolUsage, handleFinishItem, allActions, addCustomIngredient]);
+    handleFinishItem(goal, plan.finalDescription, getRarityFromName(goal));
+  }, [recordToolUsage, handleFinishItem, allActions, addCustomIngredient, inventory]);
 
   const handleSynthesize = useCallback(async (goal: string) => {
     setTargetGoal(goal);
