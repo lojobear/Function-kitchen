@@ -375,7 +375,7 @@ export function SpriteUploadModal({
                       showCustomBadge={false}
                     />
                   </div>
-                  <span className="preview-status-text">64-bit Procedural Synthesis</span>
+                  <span className="preview-status-text">64 × 64 Procedural Synthesis</span>
                 </div>
 
                 {/* Uploaded Custom Replacement */}

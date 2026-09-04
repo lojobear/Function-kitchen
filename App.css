@@ -2139,6 +2139,91 @@ html, body {
   border-radius: 6px;
 }
 
+.item-sprite-box.sprite-generating {
+  border-style: dashed;
+}
+
+.sprite-generation-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #e2e8f0;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.06) 45%, transparent 70%);
+  background-size: 220% 100%;
+  animation: spriteGenerationSweep 1.15s linear infinite;
+  pointer-events: none;
+}
+
+.sprite-generation-pixels {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 8px;
+}
+
+.sprite-generation-pixels i {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: spritePixelBuild 0.9s steps(2, end) infinite;
+}
+
+.sprite-generation-pixels i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.sprite-generation-pixels i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.sprite-generation-label,
+.sprite-generation-resolution {
+  font-family: monospace;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 4px #000;
+}
+
+.sprite-generation-resolution {
+  color: #94a3b8;
+  font-size: 8px;
+}
+
+.sprite-generation-overlay.compact .sprite-generation-pixels {
+  gap: 2px;
+}
+
+.sprite-generation-overlay.compact .sprite-generation-pixels i {
+  width: 3px;
+  height: 3px;
+}
+
+@keyframes spriteGenerationSweep {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@keyframes spritePixelBuild {
+  0%, 100% { opacity: 0.25; transform: translateY(2px); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sprite-generation-overlay,
+  .sprite-generation-pixels i {
+    animation: none;
+  }
+}
+
 .timeline-result-sprite-row {
   display: inline-flex;
   align-items: center;

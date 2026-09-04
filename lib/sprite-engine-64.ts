@@ -4,8 +4,8 @@
  */
 
 /**
- * 64-Bit High-Definition Procedural Pixel Art Sprite Engine
- * Renders exquisite 64x64 pixel art matrices with rich 64-bit color fidelity,
+ * 64x64 High-Definition Procedural Pixel Art Sprite Engine
+ * Renders detailed 64x64 pixel art matrices with a rich material palette,
  * dedicated tool archetypes, and authentic item representations.
  */
 
@@ -144,6 +144,149 @@ export function addAutomaticOutlines64(g: PixelMatrix64) {
         }
       }
     }
+  }
+}
+
+function getOccupiedBounds64(g: PixelMatrix64) {
+  let minX = 64;
+  let minY = 64;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      if (g[y][x] === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  return maxX >= minX ? { minX, minY, maxX, maxY } : null;
+}
+
+function mirrorMatrix64(g: PixelMatrix64) {
+  for (let y = 0; y < 64; y++) g[y].reverse();
+}
+
+function morphMatrix64(g: PixelMatrix64, hash: number) {
+  const variants = [
+    { scaleX: 0.86, scaleY: 1.08, shear: 0 },
+    { scaleX: 1.14, scaleY: 0.92, shear: 0 },
+    { scaleX: 1, scaleY: 1, shear: 0.12 },
+    { scaleX: 1, scaleY: 1, shear: -0.12 },
+    { scaleX: 0.93, scaleY: 0.93, shear: 0 },
+    { scaleX: 1.07, scaleY: 1.07, shear: 0 },
+  ];
+  const variant = variants[(hash >>> 1) % variants.length];
+  const source = g.map(row => [...row]);
+
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const relativeY = (y - 31.5) / variant.scaleY;
+      const sourceY = Math.round(relativeY + 31.5);
+      const sourceX = Math.round(
+        (x - 31.5) / variant.scaleX + 31.5 - relativeY * variant.shear
+      );
+      g[y][x] = sourceY >= 0 && sourceY < 64 && sourceX >= 0 && sourceX < 64
+        ? source[sourceY][sourceX]
+        : 0;
+    }
+  }
+}
+
+function getSemanticAccent64(itemName: string, itemCategory: string, hash: number): number {
+  const identity = `${itemName} ${itemCategory}`.toLowerCase();
+  if (/fire|flame|ember|magma|solar|hot/.test(identity)) return 10;
+  if (/ice|frost|water|ocean|aqua|cryo/.test(identity)) return 14;
+  if (/nature|leaf|herb|moss|wood|plant|bio/.test(identity)) return 12;
+  if (/magic|arcane|mana|void|shadow|enchanted/.test(identity)) return 13;
+  if (/electric|lightning|energy|plasma|power/.test(identity)) return 18;
+  if (/royal|gold|sun|legend|divine/.test(identity)) return 11;
+  if (/blood|ruby|crimson|red/.test(identity)) return 9;
+  if (/tech|cyber|quantum|circuit|robot|laser/.test(identity)) return 14;
+  return [9, 10, 11, 12, 13, 14, 18, 19, 22][hash % 9];
+}
+
+/**
+ * Imprints the complete item/process identity onto an archetype. The base
+ * archetype keeps the sprite readable; the silhouette attachments, material
+ * bands, and small symmetric maker's glyph make two names visually distinct.
+ */
+function applySemanticVariation64(
+  g: PixelMatrix64,
+  rng: SpritePRNG,
+  hash: number,
+  itemName: string,
+  itemCategory: string,
+  archetype: ItemArchetype
+) {
+  morphMatrix64(g, hash);
+  if ((hash & 1) === 1) mirrorMatrix64(g);
+
+  const bounds = getOccupiedBounds64(g);
+  if (!bounds) return;
+
+  const accent = getSemanticAccent64(itemName, itemCategory, hash);
+  const { minX, minY, maxX, maxY } = bounds;
+  const centerX = Math.round((minX + maxX) / 2);
+  const centerY = Math.round((minY + maxY) / 2);
+
+  // Named material bands and highlights across the existing silhouette.
+  const bandGap = rng.int(5, 8);
+  const bandPhase = rng.int(0, bandGap - 1);
+  for (let y = minY + 2; y <= maxY - 2; y++) {
+    for (let x = minX + 2; x <= maxX - 2; x++) {
+      const current = g[y][x];
+      if (current <= 1) continue;
+      const isBand = (x + y + bandPhase) % bandGap === 0;
+      const isInterior = g[y][x - 1] > 0 && g[y][x + 1] > 0 && g[y - 1][x] > 0 && g[y + 1][x] > 0;
+      if (isBand && isInterior && rng.bool(0.34)) g[y][x] = accent;
+    }
+  }
+
+  // A compact, deterministic 5x5 signature derived from the full name.
+  // This is especially important for process icons sharing one tool family.
+  const glyphX = Math.max(minX + 3, Math.min(maxX - 7, centerX - 2));
+  const glyphY = Math.max(minY + 3, Math.min(maxY - 7, centerY - 2));
+  for (let row = 0; row < 5; row++) {
+    const rowBits = (hash >>> ((row * 5) % 24)) & 0x07;
+    for (let col = 0; col < 3; col++) {
+      if ((rowBits & (1 << col)) === 0) continue;
+      const leftX = glyphX + col;
+      const rightX = glyphX + 4 - col;
+      const y = glyphY + row;
+      if (g[y]?.[leftX] > 1) g[y][leftX] = accent;
+      if (g[y]?.[rightX] > 1) g[y][rightX] = accent;
+    }
+  }
+
+  // Seeded silhouette language: crest, fins, orbitals, feet, or hanging charm.
+  const attachment = (hash >>> 3) % 5;
+  if (attachment === 0) {
+    drawLine64(g, centerX, minY, centerX - 3, Math.max(2, minY - 6), accent);
+    drawLine64(g, centerX + 1, minY, centerX + 4, Math.max(3, minY - 4), accent);
+  } else if (attachment === 1) {
+    drawLine64(g, minX, centerY, Math.max(2, minX - 6), centerY - 3, accent);
+    drawLine64(g, maxX, centerY, Math.min(61, maxX + 6), centerY + 3, accent);
+  } else if (attachment === 2) {
+    const orbitY = Math.max(3, minY - 3);
+    fillCircle64(g, Math.max(3, minX - 2), orbitY + 2, 1.5, accent);
+    fillCircle64(g, Math.min(60, maxX + 2), orbitY, 1.5, accent);
+  } else if (attachment === 3) {
+    fillRect64(g, minX + 3, maxY + 1, 4, Math.min(4, 62 - maxY), 6);
+    fillRect64(g, maxX - 6, maxY + 1, 4, Math.min(4, 62 - maxY), 6);
+  } else if (!archetype.startsWith('tool_')) {
+    drawLine64(g, maxX - 2, maxY - 1, Math.min(61, maxX + 4), Math.min(61, maxY + 5), accent);
+    fillCircle64(g, Math.min(61, maxX + 5), Math.min(61, maxY + 6), 2, accent);
+  }
+
+  // Fine specular pixels—few enough to stay intentional at true 64x64 scale.
+  for (let i = 0; i < 14; i++) {
+    const x = rng.int(minX + 1, Math.max(minX + 1, maxX - 1));
+    const y = rng.int(minY + 1, Math.max(minY + 1, maxY - 1));
+    if (g[y][x] > 1) g[y][x] = i % 4 === 0 ? 5 : accent;
   }
 }
 
@@ -1381,16 +1524,70 @@ export function generateArchetypePixelMatrix64(
       break;
     }
 
-    // Default Fallback: High-Definition Procedural Item
+    // Default Fallback: fully procedural named artifact, not a generic orb.
     default: {
-      // Produces an authentic, balanced, beautiful 64x64 item shape
-      fillCircle64(g, 32, 32, 16, 3);
-      fillCircle64(g, 30, 30, 12, 4);
-      fillCircle64(g, 28, 28, 6, 5);
-      drawCircleRing64(g, 32, 32, 16, 8, 2);
+      const form = rng.int(0, 5);
+      const accent = getSemanticAccent64(itemName, itemCategory, hash);
+
+      if (form === 0) {
+        // Faceted relic with a name-seeded asymmetric profile.
+        const leftBias = rng.int(-3, 2);
+        for (let y = 13; y <= 52; y++) {
+          const half = Math.max(4, 15 - Math.floor(Math.abs(y - 32) * 0.48));
+          fillHLine64(g, 32 - half + leftBias, 32 + half, y, y < 24 ? 4 : 3);
+        }
+        drawLine64(g, 32 + leftBias, 14, 32, 51, 5);
+        fillCircle64(g, 32, 32, 6, accent);
+      } else if (form === 1) {
+        // Compact machine with different screen, controls, aerial, and feet.
+        fillRect64(g, 13, 18, 38, 32, 6);
+        fillRect64(g, 17, 22, 30, 18, 3);
+        fillRect64(g, 21, 25, 22, 12, accent);
+        drawLine64(g, 22, 18, 17 + rng.int(0, 8), 9, 7);
+        fillCircle64(g, 18, 45, 3, 18);
+        fillCircle64(g, 28, 45, 3, 12);
+        fillCircle64(g, 39, 45, 3, 9);
+        fillRect64(g, 17, 50, 7, 5, 6);
+        fillRect64(g, 40, 50, 7, 5, 6);
+      } else if (form === 2) {
+        // Vessel/capsule with seeded handles and layered contents.
+        fillRect64(g, 26, 10, 12, 10, 7);
+        fillCircle64(g, 32, 37, 18, 3);
+        fillCircle64(g, 30, 34, 12, 4);
+        fillRect64(g, 18, 38, 28, 11, accent);
+        drawCircleRing64(g, 32, 37, 18, 8, 2);
+        drawCircleRing64(g, 13, 34, 7, 7, 2);
+        drawCircleRing64(g, 51, 34, 7, 7, 2);
+      } else if (form === 3) {
+        // Winged energy mechanism.
+        fillCircle64(g, 32, 32, 13, 6);
+        drawCircleRing64(g, 32, 32, 10, accent, 3);
+        fillCircle64(g, 32, 32, 4, 5);
+        for (let i = 0; i < 4; i++) {
+          drawLine64(g, 19 - i, 27 + i, 7, 18 + i * 2, i % 2 ? 8 : accent);
+          drawLine64(g, 45 + i, 27 + i, 57, 18 + i * 2, i % 2 ? 8 : accent);
+        }
+      } else if (form === 4) {
+        // Inscribed tablet or component plate.
+        fillRect64(g, 15, 11, 34, 43, 6);
+        fillRect64(g, 19, 15, 26, 35, 3);
+        drawCircleRing64(g, 32, 29, 10, accent, 2);
+        drawLine64(g, 23, 44, 41, 44, 8);
+        drawLine64(g, 25, 48, 39, 48, 8);
+      } else {
+        // Asymmetric implement assembled from a core, shaft, and working head.
+        drawLine64(g, 17, 53, 39, 22, 15);
+        drawLine64(g, 19, 54, 41, 23, 23);
+        fillCircle64(g, 43, 20, 12, 6);
+        fillCircle64(g, 42, 19, 8, accent);
+        drawLine64(g, 36, 15, 51, 8 + rng.int(0, 7), 8);
+        fillCircle64(g, 16, 52, 5, 11);
+      }
       break;
     }
   }
+
+  applySemanticVariation64(g, rng, hash, itemName, itemCategory, archetype);
 
   // Always apply crisp 1px RPG dark contour outline
   addAutomaticOutlines64(g);

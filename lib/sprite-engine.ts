@@ -471,7 +471,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 }
 
 // ----------------------------------------------------------------------------
-// High-Definition 24x24 Pixel Matrix Synthesizer
+// High-Definition 64x64 Pixel Matrix Synthesizer
 // ----------------------------------------------------------------------------
 
 export type PixelGrid24 = number[][];

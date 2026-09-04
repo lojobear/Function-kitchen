@@ -5,8 +5,40 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { drawProceduralSprite, getItemColor, RARITY_PALETTES, SpriteConfig } from '../lib/sprite-engine';
-import { enqueueBackgroundSpriteGeneration, onSpriteUpdated } from '../lib/background-sprite-painter';
+import { enqueueBackgroundSpriteGeneration, getCachedSprite, onSpriteUpdated } from '../lib/background-sprite-painter';
 import { getCustomSprite, subscribeCustomSprites, CustomSpriteRecord } from '../lib/custom-sprite-service';
+
+function drawGenerationPlaceholder(canvas: HTMLCanvasElement, size: number, color: string) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+
+  const background = ctx.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size * 0.72);
+  background.addColorStop(0, '#172033');
+  background.addColorStop(1, '#050810');
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, size, size);
+
+  const unit = Math.max(2, Math.floor(size / 16));
+  const gridStart = Math.floor((size - unit * 12) / 2);
+  ctx.fillStyle = `${color}20`;
+  for (let y = 0; y < 12; y++) {
+    for (let x = 0; x < 12; x++) {
+      if ((x + y) % 2 === 0) ctx.fillRect(gridStart + x * unit, gridStart + y * unit, unit - 1, unit - 1);
+    }
+  }
+
+  ctx.strokeStyle = `${color}a8`;
+  ctx.lineWidth = Math.max(1, Math.floor(size / 70));
+  ctx.setLineDash([unit * 1.5, unit]);
+  ctx.strokeRect(gridStart, gridStart, unit * 12, unit * 12);
+  ctx.setLineDash([]);
+}
 
 export interface ItemSpriteProps {
   name: string;
@@ -40,6 +72,7 @@ export function ItemSprite({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hovered, setHovered] = useState(false);
   const [spriteRevision, setSpriteRevision] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(() => !getCachedSprite(name));
   const [customSprite, setCustomSprite] = useState<CustomSpriteRecord | undefined>(() => getCustomSprite(name));
 
   // Size mapping
@@ -58,15 +91,18 @@ export function ItemSprite({
 
   // Enqueue background generation immediately (non-blocking) and subscribe to updates
   useEffect(() => {
-    if (name && name.trim()) {
-      enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
-    }
+    setIsGenerating(!getCachedSprite(name));
 
     const unsubscribe = onSpriteUpdated((updatedName) => {
       if (updatedName.toLowerCase().trim() === name.toLowerCase().trim()) {
+        setIsGenerating(false);
         setSpriteRevision((prev) => prev + 1);
       }
     });
+
+    if (name && name.trim()) {
+      enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
+    }
 
     return unsubscribe;
   }, [name, category, emoji, rarity]);
@@ -121,6 +157,11 @@ export function ItemSprite({
       return;
     }
 
+    if (!getCachedSprite(name)) {
+      drawGenerationPlaceholder(canvas, pxSize, computedColor);
+      return;
+    }
+
     const spriteConfig: SpriteConfig = {
       name,
       emoji,
@@ -134,7 +175,7 @@ export function ItemSprite({
 
   return (
     <div
-      className={`item-sprite-box sprite-${size} ${interactive ? 'cursor-pointer hover:scale-105 transition-transform' : ''} ${className}`}
+      className={`item-sprite-box sprite-${size} ${isGenerating && !customSprite ? 'sprite-generating' : ''} ${interactive ? 'cursor-pointer hover:scale-105 transition-transform' : ''} ${className}`}
       style={{
         width: `${pxSize}px`,
         height: `${pxSize}px`,
@@ -158,6 +199,20 @@ export function ItemSprite({
           display: 'block',
         }}
       />
+
+      {isGenerating && !customSprite && (
+        <div className={`sprite-generation-overlay ${size === 'thumb' || size === 'small' ? 'compact' : ''}`}>
+          <span className="sprite-generation-pixels" aria-hidden="true">
+            <i /><i /><i />
+          </span>
+          {size !== 'thumb' && size !== 'small' && (
+            <>
+              <span className="sprite-generation-label">Generating</span>
+              <span className="sprite-generation-resolution">64 × 64</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Custom Community Sprite indicator */}
       {customSprite && showCustomBadge && size !== 'thumb' && (

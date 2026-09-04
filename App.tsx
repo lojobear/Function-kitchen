@@ -383,6 +383,7 @@ function CombinationAgent({
         category: analysis.suggestedCategory,
         tags: analysis.suggestedTags,
       };
+      enqueueBackgroundSpriteGeneration(newIng.name, newIng.category, newIng.emoji, 'Common', { preferAI: true });
       setInventory(prev => [newIng, ...prev]);
       onSaveNewIngredient(newIng);
     }
@@ -403,6 +404,7 @@ function CombinationAgent({
         category: analysis.suggestedCategory,
         tags: analysis.suggestedTags,
       };
+      enqueueBackgroundSpriteGeneration(newTool.name, newTool.category, newTool.emoji, 'Common', { preferAI: true });
       onSaveNewMethod(newTool);
     }
     setNewToolName('');
@@ -485,7 +487,8 @@ function CombinationAgent({
         newIngredient.name,
         newIngredient.category,
         newIngredient.emoji,
-        'Common'
+        'Common',
+        { preferAI: true }
       );
       setTimeline(prev => prev.map(entry =>
         entry.id === timelineId ? { ...entry, result: newIngredient } : entry
@@ -821,6 +824,7 @@ function CraftingAgent({
           category: toolAnalysis.suggestedCategory,
           tags: toolAnalysis.suggestedTags,
         };
+        enqueueBackgroundSpriteGeneration(action.name, action.category, action.emoji, 'Common', { preferAI: true });
         onSaveNewMethod(action);
       }
 
@@ -840,6 +844,7 @@ function CraftingAgent({
             category: ingAnalysis.suggestedCategory,
             tags: ingAnalysis.suggestedTags,
           };
+          enqueueBackgroundSpriteGeneration(newMaterial.name, newMaterial.category, newMaterial.emoji, 'Common', { preferAI: true });
           validatedIngredients.push(reqName);
           newItemsToCreate.push(newMaterial);
           onSaveNewIngredient(newMaterial);
@@ -894,7 +899,8 @@ function CraftingAgent({
           newIngredient.name,
           newIngredient.category,
           newIngredient.emoji,
-          'Common'
+          'Common',
+          { preferAI: true }
         );
 
         setTimeline(prev => prev.map(entry =>
@@ -1121,7 +1127,7 @@ function KitchenAppContainer() {
     setFinishedItem(newItem);
     saveFinishedItem(newItem);
     setIsCrafting(false);
-    enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
+    enqueueBackgroundSpriteGeneration(name, category, emoji, rarity, { preferAI: true });
   }, [inventory, saveFinishedItem]);
 
   const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
@@ -1230,7 +1236,8 @@ function KitchenAppContainer() {
         newIngredient.name,
         newIngredient.category,
         newIngredient.emoji,
-        i === craftingSteps.length - 1 ? getRarityFromName(goal) : 'Common'
+        i === craftingSteps.length - 1 ? getRarityFromName(goal) : 'Common',
+        { preferAI: true }
       );
 
       setTimeline(prev => prev.map(entry =>
@@ -1424,10 +1431,12 @@ function KitchenAppContainer() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddIngredient={(ing) => {
+          enqueueBackgroundSpriteGeneration(ing.name, ing.category, ing.emoji, 'Common', { preferAI: true });
           setInventory(prev => isDuplicateIngredient(ing.name, prev) ? prev : [ing, ...prev]);
           addCustomIngredient(ing);
         }}
         onAddMethod={(method) => {
+          enqueueBackgroundSpriteGeneration(method.name, method.category, method.emoji, 'Common', { preferAI: true });
           addCustomMethod(method);
         }}
       />
