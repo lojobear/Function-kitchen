@@ -313,7 +313,13 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   if (n.includes('hot sauce') || n.includes('sauce') || n.includes('frank') || n.includes('sriracha') || n.includes('tabasco') || n.includes('condiment') || n.includes('ketchup') || n.includes('mustard') || n.includes('chili sauce') || n.includes('dip')) return 'hot_sauce';
   if (n.includes('tesla') || n.includes('roadster') || n.includes('car') || n.includes('automobile') || n.includes('vehicle') || n.includes('supercar') || n.includes('racecar') || n.includes('truck')) return 'car';
   if (n.includes('ufc') || n.includes('boxing') || n.includes('glove') || n.includes('mitt') || n.includes('handwrap')) return 'glove';
-  if (n.includes('potion') || n.includes('invisibility') || n.includes('elixir') || n.includes('vial') || n.includes('flask') || n.includes('brew') || n.includes('draught') || n.includes('serum') || n.includes('tonic') || n.includes('alchemy')) return 'potion';
+  if (n.includes('potion') || n.includes('invisibility') || n.includes('elixir') || n.includes('vial') || n.includes('flask') || n.includes('draught') || n.includes('serum') || n.includes('tonic') || n.includes('alchemy')) return 'potion';
+  if (n.includes('macchiato') || n.includes('coffee') || n.includes('espresso') || n.includes('cappuccino') || n.includes('latte') || n.includes('mocha') || n.includes('frappe') || n.includes('cold brew') || n.includes('matcha') || n.includes('chai') || n.includes('tea') || n.includes('beverage') || n.includes('drink') || n.includes('smoothie') || n.includes('juice') || n.includes('cider') || n.includes('cocktail') || n.includes('wine') || n.includes('beer') || n.includes('ale') || n.includes('mug')) return 'drink';
+  if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq') || n.includes('bacon')) return 'meat';
+  if (n.includes('bread') || n.includes('baguette') || n.includes('croissant') || n.includes('toast') || n.includes('bun') || n.includes('sourdough')) return 'bread';
+  if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella') || n.includes('parmesan') || n.includes('gouda')) return 'cheese';
+  if (n.includes('sushi') || n.includes('sashimi') || n.includes('maki') || n.includes('nigiri') || n.includes('onigiri')) return 'sushi';
+  if (n.includes('apple') || n.includes('berry') || n.includes('fruit') || n.includes('strawberry') || n.includes('blueberry') || n.includes('orange') || n.includes('lemon') || n.includes('banana') || n.includes('cherry') || n.includes('peach')) return 'fruit';
 
   if (n.includes('waffle') || n.includes('pancake') || n.includes('crepe')) return 'waffle';
   if (n.includes('shallot') || n.includes('onion') || n.includes('garlic') || n.includes('scallion') || n.includes('leek')) return 'shallot';
