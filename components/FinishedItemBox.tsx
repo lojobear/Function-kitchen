@@ -13,6 +13,11 @@ interface FinishedItemBoxProps {
   isCrafting: boolean;
   targetGoal: string;
   activeAction: string | null;
+  progress: {
+    step: number;
+    total: number | null;
+    phase: 'planning' | 'processing' | 'revealing';
+  };
   showcaseCount: number;
   onClearItem: () => void;
   onInspectSprite?: (item: FinishedItem) => void;
@@ -24,6 +29,7 @@ export function FinishedItemBox({
   isCrafting,
   targetGoal,
   activeAction,
+  progress,
   showcaseCount,
   onClearItem,
   onInspectSprite,
@@ -31,6 +37,17 @@ export function FinishedItemBox({
 }: FinishedItemBoxProps) {
   const [showFullMetrics, setShowFullMetrics] = useState<boolean>(true);
   if (isCrafting) {
+    const progressPercent = progress.total
+      ? Math.min(100, Math.round((progress.step / progress.total) * 100))
+      : progress.phase === 'planning'
+        ? 8
+        : Math.min(88, 18 + progress.step * 13);
+    const phaseLabel = progress.phase === 'planning'
+      ? 'Planning a logical recipe'
+      : progress.phase === 'processing'
+        ? 'Transforming materials'
+        : 'Revealing the new component';
+
     return (
       <div className="finished-box-container crafting-active">
         <div className="finished-box-header">
@@ -45,14 +62,34 @@ export function FinishedItemBox({
             <span className="chamber-emoji-pulse">🔮</span>
           </div>
           <div className="chamber-status">
-            <div className="status-title">Executing AI Tool Calls...</div>
-            <div className="status-sub">
+            <div className="status-title" aria-live="polite">{phaseLabel}</div>
+            <div className="status-sub" aria-live="polite">
               {activeAction ? (
                 <>Applying tool: <code className="active-action-code">{activeAction}()</code></>
               ) : (
-                'Analyzing recipe and combining components...'
+                'Choosing materials and ordering the stages...'
               )}
             </div>
+          </div>
+          <div className="craft-progress-panel" aria-label="Crafting progress">
+            <div className="craft-progress-copy">
+              <span>
+                {progress.step > 0 ? `Stage ${progress.step}${progress.total ? ` of ${progress.total}` : ''}` : 'Recipe setup'}
+              </span>
+              <span>{progress.phase === 'revealing' ? 'New sprite ready' : 'Working...'}</span>
+            </div>
+            <div
+              className={`craft-progress-track ${progress.total ? '' : 'indeterminate'}`}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPercent}
+            >
+              <span className="craft-progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <p className="craft-progress-note">
+              Each component stays on screen long enough to inspect, with a fresh procedural sprite generated when it appears.
+            </p>
           </div>
         </div>
       </div>

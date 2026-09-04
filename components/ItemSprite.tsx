@@ -39,7 +39,7 @@ export function ItemSprite({
 }: ItemSpriteProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [, setRenderTrigger] = useState(0);
+  const [spriteRevision, setSpriteRevision] = useState(0);
   const [customSprite, setCustomSprite] = useState<CustomSpriteRecord | undefined>(() => getCustomSprite(name));
 
   // Size mapping
@@ -64,7 +64,7 @@ export function ItemSprite({
 
     const unsubscribe = onSpriteUpdated((updatedName) => {
       if (updatedName.toLowerCase().trim() === name.toLowerCase().trim()) {
-        setRenderTrigger((prev) => prev + 1);
+        setSpriteRevision((prev) => prev + 1);
       }
     });
 
@@ -130,7 +130,7 @@ export function ItemSprite({
     };
 
     drawProceduralSprite(canvas, spriteConfig, pxSize);
-  }, [name, emoji, category, computedColor, rarity, pxSize, customSprite]);
+  }, [name, emoji, category, computedColor, rarity, pxSize, customSprite, spriteRevision]);
 
   return (
     <div

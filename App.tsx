@@ -85,6 +85,24 @@ function getCategoryFromName(name: string): string {
   return analysis.suggestedCategory;
 }
 
+const MIN_STAGE_PROCESSING_MS = 1050;
+const RESULT_REVIEW_MS = 650;
+
+interface CraftingProgress {
+  step: number;
+  total: number | null;
+  phase: 'planning' | 'processing' | 'revealing';
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+async function waitForMinimumDuration(startedAt: number, minimumMs: number): Promise<void> {
+  const remaining = minimumMs - (Date.now() - startedAt);
+  if (remaining > 0) await wait(remaining);
+}
+
 // ============================================================================
 // Ingredient & Action Tiles
 // ============================================================================
@@ -414,7 +432,7 @@ function CombinationAgent({
       return {
         name: result.result_name || `${action.displayName}ed ${ingredientNames[0]}`,
         emoji: result.emoji || getFallbackEmoji(result.result_name || ''),
-        category: 'Synthesized',
+        category: result.category || 'Synthesized',
       };
     } catch {
       // Quiet fallback when offline or quota reached
@@ -458,9 +476,17 @@ function CombinationAgent({
     }]);
     setActiveAction(action.name);
 
+    const stageStartedAt = Date.now();
     const newIngredient = await executeCombination(action, ingredientNames);
+    await waitForMinimumDuration(stageStartedAt, MIN_STAGE_PROCESSING_MS);
 
     if (newIngredient) {
+      enqueueBackgroundSpriteGeneration(
+        newIngredient.name,
+        newIngredient.category,
+        newIngredient.emoji,
+        'Common'
+      );
       setTimeline(prev => prev.map(entry =>
         entry.id === timelineId ? { ...entry, result: newIngredient } : entry
       ));
@@ -475,6 +501,7 @@ function CombinationAgent({
       ));
     }
 
+    await wait(RESULT_REVIEW_MS);
     setActiveAction(null);
   }, [selectedIngredients, executeCombination, setTimeline, setActiveAction, setSelectedIngredients, setInventory, onFinishItem, onSaveNewIngredient]);
 
@@ -680,6 +707,7 @@ interface CraftingAgentProps {
   onSaveNewIngredient: (ing: Ingredient) => void;
   onSaveNewMethod: (method: KitchenAction) => void;
   allActions: KitchenAction[];
+  onProgress: (progress: CraftingProgress) => void;
 }
 
 function CraftingAgent({
@@ -696,6 +724,7 @@ function CraftingAgent({
   onSaveNewIngredient,
   onSaveNewMethod,
   allActions,
+  onProgress,
 }: CraftingAgentProps) {
   const { client, setConfig, sendMessage, model } = useGeminiAPIContext();
   const pendingTextRef = useRef<string | null>(null);
@@ -778,6 +807,8 @@ function CraftingAgent({
 
       const requestedIngredients = args.ingredients || [];
       const timelineId = `crafting-${Date.now()}`;
+      const stageStartedAt = Date.now();
+      onProgress({ step: currentStep, total: null, phase: 'processing' });
 
       // Dynamic tool creation: if tool action doesn't exist, create it and save to list
       let action = allActions.find(a => a.name === actionName);
@@ -857,6 +888,15 @@ function CraftingAgent({
           };
         }
 
+        await waitForMinimumDuration(stageStartedAt, MIN_STAGE_PROCESSING_MS);
+
+        enqueueBackgroundSpriteGeneration(
+          newIngredient.name,
+          newIngredient.category,
+          newIngredient.emoji,
+          'Common'
+        );
+
         setTimeline(prev => prev.map(entry =>
           entry.id === timelineId ? { ...entry, result: newIngredient } : entry
         ));
@@ -866,6 +906,8 @@ function CraftingAgent({
           return [newIngredient!, ...prev];
         });
         onSaveNewIngredient(newIngredient);
+        onProgress({ step: currentStep, total: null, phase: 'revealing' });
+        await wait(RESULT_REVIEW_MS);
 
         // Step budget safety limiter: only auto-finalize if 8+ steps to allow deep multi-stage logical craftsmanship
         if (currentStep >= 8) {
@@ -910,7 +952,7 @@ function CraftingAgent({
 
     (client as any).on('approvedfunctioncalls', handleApprovedFunctionCalls);
     return () => { (client as any).off('approvedfunctioncalls', handleApprovedFunctionCalls); };
-  }, [client, sendMessage, setTimeline, setActiveAction, setActionTriggerCount, setInventory, executeCombinationRef, onFinishItem, inventory, targetGoal, recordToolUsage, onSaveNewIngredient, onSaveNewMethod, allActions]);
+  }, [client, sendMessage, setTimeline, setActiveAction, setActionTriggerCount, setInventory, executeCombinationRef, onFinishItem, inventory, targetGoal, recordToolUsage, onSaveNewIngredient, onSaveNewMethod, allActions, onProgress]);
 
 
   useEffect(() => {
@@ -986,6 +1028,11 @@ function KitchenAppContainer() {
   const [inputGoal, setInputGoal] = useState<string>('Laser Sword');
   const [targetGoal, setTargetGoal] = useState<string>('');
   const [isCrafting, setIsCrafting] = useState<boolean>(false);
+  const [craftingProgress, setCraftingProgress] = useState<CraftingProgress>({
+    step: 0,
+    total: null,
+    phase: 'planning',
+  });
 
   const [finishedItem, setFinishedItem] = useState<FinishedItem | null>(null);
 
@@ -1024,8 +1071,8 @@ function KitchenAppContainer() {
     []
   );
 
-  const [usedToolsSession, setUsedToolsSession] = useState<string[]>([]);
-  const [usedMaterialsSession, setUsedMaterialsSession] = useState<string[]>([]);
+  const usedToolsSessionRef = useRef<string[]>([]);
+  const usedMaterialsSessionRef = useRef<string[]>([]);
 
   const [combinationAgentOpen, setCombinationAgentOpen] = useState(false);
   const [cookingAgentOpen, setCookingAgentOpen] = useState(false);
@@ -1035,13 +1082,13 @@ function KitchenAppContainer() {
   const sendCraftingMessageRef = useRef<((message: string) => void) | null>(null);
 
   const recordToolUsage = useCallback((tool: string, materials: string[]) => {
-    setUsedToolsSession(prev => prev.includes(tool) ? prev : [...prev, tool]);
-    setUsedMaterialsSession(prev => {
-      const updated = [...prev];
-      materials.forEach(m => {
-        if (!updated.includes(m)) updated.push(m);
-      });
-      return updated;
+    if (!usedToolsSessionRef.current.includes(tool)) {
+      usedToolsSessionRef.current.push(tool);
+    }
+    materials.forEach(material => {
+      if (!usedMaterialsSessionRef.current.includes(material)) {
+        usedMaterialsSessionRef.current.push(material);
+      }
     });
   }, []);
 
@@ -1066,8 +1113,8 @@ function KitchenAppContainer() {
       color: color,
       tags: analysis.suggestedTags,
       description: desc || `A masterfully synthesized ${name} created through AI tool function calling.`,
-      toolsUsed: usedToolsSession.length > 0 ? [...usedToolsSession] : ['smelt', 'forge', 'enchant'],
-      ingredientsUsed: usedMaterialsSession.length > 0 ? [...usedMaterialsSession] : ['Raw Materials'],
+      toolsUsed: usedToolsSessionRef.current.length > 0 ? [...usedToolsSessionRef.current] : ['finish_item'],
+      ingredientsUsed: usedMaterialsSessionRef.current.length > 0 ? [...usedMaterialsSessionRef.current] : [name],
       createdAt: new Date(),
     };
 
@@ -1075,7 +1122,7 @@ function KitchenAppContainer() {
     saveFinishedItem(newItem);
     setIsCrafting(false);
     enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
-  }, [inventory, usedToolsSession, usedMaterialsSession, saveFinishedItem]);
+  }, [inventory, saveFinishedItem]);
 
   const [apiQuotaExceeded, setApiQuotaExceeded] = useState(false);
 
@@ -1156,6 +1203,11 @@ function KitchenAppContainer() {
 
       const timelineId = `fallback-${Date.now()}-${i}`;
       setActiveAction(tool.name);
+      setCraftingProgress({
+        step: i + 1,
+        total: craftingSteps.length,
+        phase: 'processing',
+      });
       recordToolUsage(tool.name, step.inputs);
 
       setTimeline(prev => [...prev, {
@@ -1166,13 +1218,20 @@ function KitchenAppContainer() {
         result: null,
       }]);
 
-      await new Promise(res => setTimeout(res, 450));
+      await wait(MIN_STAGE_PROCESSING_MS);
 
       const newIngredient: Ingredient = {
         name: step.outputName,
         emoji: step.outputEmoji || getFallbackEmoji(step.outputName),
         category: i === craftingSteps.length - 1 ? 'Finished Creation' : 'Component Sub-Assembly',
       };
+
+      enqueueBackgroundSpriteGeneration(
+        newIngredient.name,
+        newIngredient.category,
+        newIngredient.emoji,
+        i === craftingSteps.length - 1 ? getRarityFromName(goal) : 'Common'
+      );
 
       setTimeline(prev => prev.map(entry =>
         entry.id === timelineId ? { ...entry, result: newIngredient } : entry
@@ -1183,8 +1242,13 @@ function KitchenAppContainer() {
         return [newIngredient, ...prev];
       });
       addCustomIngredient(newIngredient);
+      setCraftingProgress({
+        step: i + 1,
+        total: craftingSteps.length,
+        phase: 'revealing',
+      });
 
-      await new Promise(res => setTimeout(res, 280));
+      await wait(RESULT_REVIEW_MS);
     }
 
     setActiveAction(null);
@@ -1202,8 +1266,9 @@ function KitchenAppContainer() {
     setTargetGoal(goal);
     setIsCrafting(true);
     setFinishedItem(null);
-    setUsedToolsSession([]);
-    setUsedMaterialsSession([]);
+    usedToolsSessionRef.current = [];
+    usedMaterialsSessionRef.current = [];
+    setCraftingProgress({ step: 0, total: null, phase: 'planning' });
 
     try {
       if (sendCraftingMessageRef.current) {
@@ -1272,6 +1337,7 @@ function KitchenAppContainer() {
           isCrafting={isCrafting}
           targetGoal={targetGoal}
           activeAction={activeAction}
+          progress={craftingProgress}
           showcaseCount={syncedFinishedItems.length}
           onClearItem={() => setFinishedItem(null)}
           onInspectSprite={(item) => setInspectingItem(item)}
@@ -1340,6 +1406,7 @@ function KitchenAppContainer() {
           onSaveNewIngredient={addCustomIngredient}
           onSaveNewMethod={addCustomMethod}
           allActions={allActions}
+          onProgress={setCraftingProgress}
         />
         <GeminiDebug
           agentName="Crafting Agent"
