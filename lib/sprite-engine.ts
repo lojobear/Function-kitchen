@@ -289,6 +289,10 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   const isToolContext = /tool|action|process|method/.test(c);
   const isProcessName = (...names: string[]) =>
     names.includes(n) || (isToolContext && names.some(processName => n.includes(processName)));
+  const hasTerm = (...terms: string[]) => terms.some(term => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(n);
+  });
 
   // 1. Dedicated Crafting Tool Archetypes (highest priority when matching tools or actions)
   if (isProcessName('smelt', 'cast', 'quench', 'temper', 'purify_metal', 'calcine')) return 'tool_smelt';
@@ -314,10 +318,10 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   if (n.includes('spaghetti') || n.includes('meatball') || n.includes('pasta') || n.includes('lasagna') || n.includes('ravioli') || n.includes('fettuccine') || n.includes('noodle')) return 'spaghetti';
   if (n.includes('pizza') || n.includes('calzone') || n.includes('flatbread')) return 'pizza';
   if (n.includes('hot sauce') || n.includes('sauce') || n.includes('frank') || n.includes('sriracha') || n.includes('tabasco') || n.includes('condiment') || n.includes('ketchup') || n.includes('mustard') || n.includes('chili sauce') || n.includes('dip')) return 'hot_sauce';
-  if (n.includes('tesla') || n.includes('roadster') || n.includes('car') || n.includes('automobile') || n.includes('vehicle') || n.includes('supercar') || n.includes('racecar') || n.includes('truck')) return 'car';
+  if (hasTerm('tesla', 'roadster', 'car', 'automobile', 'vehicle', 'supercar', 'racecar', 'truck')) return 'car';
   if (n.includes('ufc') || n.includes('boxing') || n.includes('glove') || n.includes('mitt') || n.includes('handwrap')) return 'glove';
   if (n.includes('potion') || n.includes('invisibility') || n.includes('elixir') || n.includes('vial') || n.includes('flask') || n.includes('draught') || n.includes('serum') || n.includes('tonic') || n.includes('alchemy')) return 'potion';
-  if (n.includes('macchiato') || n.includes('coffee') || n.includes('espresso') || n.includes('cappuccino') || n.includes('latte') || n.includes('mocha') || n.includes('frappe') || n.includes('cold brew') || n.includes('matcha') || n.includes('chai') || n.includes('tea') || n.includes('beverage') || n.includes('drink') || n.includes('smoothie') || n.includes('juice') || n.includes('cider') || n.includes('cocktail') || n.includes('wine') || n.includes('beer') || n.includes('ale') || n.includes('mug')) return 'drink';
+  if (hasTerm('macchiato', 'coffee', 'espresso', 'cappuccino', 'latte', 'mocha', 'frappe', 'cold brew', 'matcha', 'chai', 'tea', 'beverage', 'drink', 'smoothie', 'juice', 'cider', 'cocktail', 'wine', 'beer', 'ale', 'mug')) return 'drink';
   if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq') || n.includes('bacon')) return 'meat';
   if (n.includes('bread') || n.includes('baguette') || n.includes('croissant') || n.includes('toast') || n.includes('bun') || n.includes('sourdough')) return 'bread';
   if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella') || n.includes('parmesan') || n.includes('gouda')) return 'cheese';
@@ -438,7 +442,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   if (n.includes('cake') || n.includes('pastry') || n.includes('pie') || n.includes('cookie') || n.includes('donut')) return 'cake';
   if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq')) return 'meat';
   if (n.includes('bread') || n.includes('baguette') || n.includes('toast') || n.includes('flour') || n.includes('croissant')) return 'bread';
-  if (n.includes('tea') || n.includes('coffee') || n.includes('drink') || n.includes('juice') || n.includes('mug') || n.includes('latte') || n.includes('cocktail') || n.includes('wine') || n.includes('beer')) return 'drink';
+  if (hasTerm('tea', 'coffee', 'drink', 'juice', 'mug', 'latte', 'cocktail', 'wine', 'beer')) return 'drink';
   if (n.includes('sushi') || n.includes('sashimi') || n.includes('maki') || n.includes('nigiri')) return 'sushi';
   if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella')) return 'cheese';
   if (n.includes('apple') || n.includes('berry') || n.includes('fruit') || n.includes('orange') || n.includes('lemon') || n.includes('grape') || n.includes('banana') || n.includes('cherry')) return 'fruit';

@@ -37,7 +37,21 @@ interface TagRule {
   archetype?: ItemArchetype;
 }
 
+function matchesKeyword(value: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(value);
+}
+
 const TAXONOMY_RULES: TagRule[] = [
+  {
+    keywords: ['chair', 'table', 'desk', 'cabinet', 'shelf', 'stool', 'bench', 'furniture'],
+    category: 'Furniture',
+    primaryEmoji: '🪑',
+    emojis: ['🪑', '🪵', '🪚', '🪵', '🌲'],
+    tags: ['#furniture', '#woodworking', '#joinery', '#crafted', '#functional'],
+    material: 'Fitted Hardwood',
+    archetype: 'artifact',
+  },
   // Specific Gourmet & Alchemical Materials
   {
     keywords: ['waffle', 'pancake', 'toast', 'batter', 'syrup'],
@@ -840,7 +854,7 @@ export function analyzeItem(
   // 1. Tool-Specific Matching
   if (isTool) {
     for (const rule of TOOL_ACTION_RULES) {
-      if (rule.keywords.some((kw) => cleanName.includes(kw))) {
+      if (rule.keywords.some((kw) => matchesKeyword(cleanName, kw))) {
         return {
           suggestedCategory: rule.category,
           primaryEmoji: cleanEmoji && cleanEmoji !== '⚡' ? cleanEmoji : rule.primaryEmoji,
@@ -858,7 +872,7 @@ export function analyzeItem(
 
   // 2. Taxonomy Rule Matching for Items & Ingredients
   for (const rule of TAXONOMY_RULES) {
-    const matchedKeyword = rule.keywords.find((kw) => cleanName.includes(kw));
+    const matchedKeyword = rule.keywords.find((kw) => matchesKeyword(cleanName, kw));
     if (matchedKeyword) {
       // Determine Rarity Modifier
       let raritySuggestion: 'Common' | 'Rare' | 'Epic' | 'Legendary' = 'Common';
