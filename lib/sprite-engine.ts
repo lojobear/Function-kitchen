@@ -155,17 +155,26 @@ export function getItemColor(item: { name: string; category?: string; color?: st
   // Keyword-specific semantic colors
   if (n.includes('waffle') || n.includes('pancake') || n.includes('toast') || n.includes('pastry') || n.includes('amber')) return '#d97706';
   if (n.includes('shallot') || n.includes('onion') || n.includes('beet') || n.includes('garlic')) return '#9333ea';
+  if (n.includes('coffee') || n.includes('espresso') || n.includes('bean') || n.includes('mocha') || n.includes('roast')) return '#451a03';
+  if (n.includes('dough') || n.includes('flour') || n.includes('slurry') || n.includes('batter')) return '#fde047';
+  if (n.includes('crust') || n.includes('pizza base') || n.includes('bread')) return '#d97706';
+  if (n.includes('sauce') || n.includes('marinara') || n.includes('reduction') || n.includes('puree')) return '#b91c1c';
+  if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella') || n.includes('grated')) return '#facc15';
+  if (n.includes('milk') || n.includes('foam') || n.includes('pitcher') || n.includes('microfoam')) return '#f8fafc';
+  if (n.includes('billet') || n.includes('blade blank') || n.includes('steel') || n.includes('iron') || n.includes('titanium')) return '#64748b';
+  if (n.includes('chassis') || n.includes('framework') || n.includes('housing') || n.includes('enclosure')) return '#334155';
+  if (n.includes('circuit') || n.includes('pcb') || n.includes('wafer') || n.includes('chip')) return '#059669';
+  if (n.includes('lens') || n.includes('optic') || n.includes('prism')) return '#38bdf8';
+  if (n.includes('herb') || n.includes('basil') || n.includes('leaf') || n.includes('plant')) return '#16a34a';
   if (n.includes('hydrosol') || n.includes('distill') || n.includes('essence') || n.includes('solvent') || n.includes('elixir')) return '#06b6d4';
   if (n.includes('cinder') || n.includes('ember') || n.includes('inferno') || n.includes('magma') || n.includes('flame') || n.includes('fire')) return '#ea580c';
   if (n.includes('cloth') || n.includes('fabric') || n.includes('silk') || n.includes('linen') || n.includes('weave') || n.includes('fiber')) return '#e11d48';
   if (n.includes('membrane') || n.includes('myco') || n.includes('spore') || n.includes('fungus') || n.includes('bio')) return '#10b981';
   if (n.includes('gold') || n.includes('solar') || n.includes('sun') || n.includes('starlight')) return '#f59e0b';
   if (n.includes('ice') || n.includes('frost') || n.includes('cryo') || n.includes('water') || n.includes('ocean')) return '#0284c7';
-  if (n.includes('leaf') || n.includes('herb') || n.includes('plant') || n.includes('nature') || n.includes('moss')) return '#16a34a';
   if (n.includes('quantum') || n.includes('plasma') || n.includes('laser') || n.includes('cyber') || n.includes('reactor')) return '#06b6d4';
   if (n.includes('void') || n.includes('dark') || n.includes('shadow') || n.includes('arcane') || n.includes('mana')) return '#7c3aed';
-  if (n.includes('steel') || n.includes('iron') || n.includes('titanium') || n.includes('metal') || n.includes('silver')) return '#64748b';
-  if (n.includes('copper') || n.includes('bronze') || n.includes('leather') || n.includes('clay') || n.includes('bread')) return '#b45309';
+  if (n.includes('copper') || n.includes('bronze') || n.includes('leather') || n.includes('clay')) return '#b45309';
   if (n.includes('lightning') || n.includes('thunder') || n.includes('electric') || n.includes('spark')) return '#eab308';
   if (n.includes('diamond') || n.includes('crystal') || n.includes('pure') || n.includes('glass')) return '#38bdf8';
   if (n.includes('poison') || n.includes('toxic') || n.includes('acid') || n.includes('slime')) return '#84cc16';
@@ -202,6 +211,26 @@ export type ItemArchetype =
   | 'tool_stitch'
   | 'tool_grind'
   | 'tool_finish'
+  // Intermediate & Crafting Stage Archetypes
+  | 'dough'
+  | 'crust'
+  | 'sauce'
+  | 'grated_cheese'
+  | 'coffee_beans'
+  | 'ground_powder'
+  | 'espresso_shot'
+  | 'milk_pitcher'
+  | 'billet'
+  | 'blade_blank'
+  | 'pommel_hilt'
+  | 'chassis'
+  | 'circuit'
+  | 'conduit_wire'
+  | 'mechanism'
+  | 'lens_optic'
+  | 'herb_bundle'
+  | 'food_platter'
+  // Existing archetypes
   | 'gelato'
   | 'spaghetti'
   | 'pizza'
@@ -286,42 +315,139 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   const n = name.toLowerCase().trim();
   const c = category.toLowerCase().trim();
   const e = emoji.trim();
-  const isToolContext = /tool|action|process|method/.test(c);
-  const isProcessName = (...names: string[]) =>
-    names.includes(n) || (isToolContext && names.some(processName => n.includes(processName)));
-  const hasTerm = (...terms: string[]) => terms.some(term => {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(n);
-  });
 
-  // 1. Dedicated Crafting Tool Archetypes (highest priority when matching tools or actions)
-  if (isProcessName('smelt', 'cast', 'quench', 'temper', 'purify_metal', 'calcine')) return 'tool_smelt';
-  if (isProcessName('forge', 'hammer', 'rivet', 'shape', 'shaping')) return 'tool_forge';
-  if (isProcessName('weld', 'solder')) return 'tool_weld';
-  if (isProcessName('knead', 'whisk', 'roll')) return 'tool_knead';
-  if (isProcessName('bake', 'oven')) return 'tool_bake';
-  if (isProcessName('roast', 'grill', 'smoke', 'caramelize')) return 'tool_roast';
-  if (isProcessName('fry', 'saute')) return 'tool_fry';
-  if (isProcessName('distill', 'condense', 'filter', 'brew', 'steep')) return 'tool_distill';
-  if (isProcessName('program', 'overclock', 'tune', 'charge', 'energize')) return 'tool_program';
-  if (isProcessName('laser_cut', 'print_3d')) return 'tool_laser_cut';
-  if (isProcessName('assemble', 'wire', 'magnetize', 'compress')) return 'tool_assemble';
-  if (isProcessName('calibrate', 'measure')) return 'tool_calibrate';
-  if (isProcessName('enchant', 'empower', 'summon', 'charm', 'channel', 'inscribe', 'bless', 'curse', 'alchemize')) return 'tool_enchant';
-  if (isProcessName('carve', 'sand', 'varnish')) return 'tool_carve';
-  if (isProcessName('stitch', 'weave', 'weave_cloth', 'laminate', 'glue')) return 'tool_stitch';
-  if (isProcessName('grind', 'crush', 'shred', 'extract', 'dissolve')) return 'tool_grind';
-  if (isProcessName('finish_item', 'serve', 'showcase')) return 'tool_finish';
+  // 1. Dedicated Crafting Tool Archetypes (ONLY when item is explicitly a tool, action, or method)
+  const isTool =
+    c === 'tool' ||
+    c === 'action' ||
+    c === 'crafting_tool' ||
+    c === 'method' ||
+    c === 'metallurgy' ||
+    c === 'processing' ||
+    c === 'finishing' ||
+    n === 'smelt' || n === 'forge' || n === 'weld' || n === 'temper' || n === 'cast' || n === 'quench' ||
+    n === 'engrave' || n === 'polish' || n === 'solder' || n === 'rivet' || n === 'mix' || n === 'distill' ||
+    n === 'crystallize' || n === 'ferment' || n === 'infuse' || n === 'transmute' || n === 'dissolve' ||
+    n === 'sublime' || n === 'filter' || n === 'brew' || n === 'steep' || n === 'react' || n === 'synthesize' ||
+    n === 'condense' || n === 'assemble' || n === 'wire' || n === 'charge' || n === 'program' || n === 'calibrate' ||
+    n === 'laser_cut' || n === 'print_3d' || n === 'magnetize' || n === 'energize' || n === 'tune' || n === 'compress' ||
+    n === 'overclock' || n === 'fry' || n === 'boil' || n === 'bake' || n === 'roast' || n === 'saute' ||
+    n === 'grill' || n === 'steam' || n === 'simmer' || n === 'chop' || n === 'blend' || n === 'whisk' ||
+    n === 'knead' || n === 'season' || n === 'caramelize' || n === 'freeze' || n === 'melt' || n === 'smoke' ||
+    n === 'garnish' || n === 'enchant' || n === 'bind' || n === 'empower' || n === 'summon' || n === 'weave' ||
+    n === 'charm' || n === 'channel' || n === 'inscribe' || n === 'bless' || n === 'purify' || n === 'curse' ||
+    n === 'alchemize' || n === 'carve' || n === 'stitch' || n === 'glue' || n === 'sand' || n === 'varnish' ||
+    n === 'mold' || n === 'cut' || n === 'shape' || n === 'mount' || n === 'weave_cloth' || n === 'laminate' ||
+    n === 'hammer' || n === 'grind' || n === 'crush' || n === 'shred' || n === 'extract' || n === 'purify_metal' ||
+    n === 'bleach' || n === 'calcine' || n === 'liquefy' || n === 'finish_item' || n === 'serve';
 
-  // 2. High-Specificity Natural Keyword Overrides (checked next)
+  if (isTool) {
+    if (n === 'smelt' || n === 'cast' || n === 'quench' || n === 'temper' || n === 'purify_metal' || n === 'calcine' || n === 'liquefy' || n.includes('smelt')) return 'tool_smelt';
+    if (n === 'forge' || n === 'hammer' || n === 'rivet' || n === 'compress' || n.includes('forge')) return 'tool_forge';
+    if (n === 'weld' || n === 'solder' || n.includes('weld')) return 'tool_weld';
+    if (n === 'knead' || n === 'whisk' || n === 'mix' || n.includes('knead')) return 'tool_knead';
+    if (n === 'bake' || n === 'caramelize' || n.includes('bake')) return 'tool_bake';
+    if (n === 'roast' || n === 'grill' || n === 'smoke' || n.includes('roast')) return 'tool_roast';
+    if (n === 'fry' || n === 'saute' || n === 'boil' || n === 'simmer' || n === 'steam' || n.includes('fry')) return 'tool_fry';
+    if (n === 'distill' || n === 'condense' || n === 'filter' || n === 'brew' || n === 'steep' || n === 'extract' || n === 'bleach' || n === 'crystallize' || n === 'ferment' || n === 'infuse' || n === 'dissolve' || n === 'sublime' || n.includes('distill')) return 'tool_distill';
+    if (n === 'program' || n.includes('program')) return 'tool_program';
+    if (n === 'laser_cut' || n === 'print_3d' || n.includes('laser')) return 'tool_laser_cut';
+    if (n === 'assemble' || n === 'mount' || n === 'synthesize' || n.includes('assemble')) return 'tool_assemble';
+    if (n === 'calibrate' || n === 'tune' || n.includes('calibrate')) return 'tool_calibrate';
+    if (n === 'enchant' || n === 'bind' || n === 'empower' || n === 'summon' || n === 'charm' || n === 'channel' || n === 'bless' || n === 'purify' || n === 'transmute' || n === 'react' || n === 'alchemize' || n.includes('enchant')) return 'tool_enchant';
+    if (n === 'carve' || n === 'engrave' || n === 'inscribe' || n === 'chop' || n.includes('carve')) return 'tool_carve';
+    if (n === 'stitch' || n === 'weave' || n === 'weave_cloth' || n.includes('stitch')) return 'tool_stitch';
+    if (n === 'grind' || n === 'crush' || n === 'shred' || n === 'sand' || n === 'polish' || n === 'blend' || n.includes('grind') || n.includes('crush')) return 'tool_grind';
+    if (n === 'finish_item' || n === 'serve' || n.includes('finish')) return 'tool_finish';
+    if (n === 'wire') return 'conduit_wire';
+    if (n === 'charge' || n === 'overclock' || n === 'energize') return 'tech_core';
+    if (n === 'magnetize') return 'magnet';
+    if (n === 'freeze') return 'ice';
+    if (n === 'melt') return 'fire';
+    if (n === 'curse') return 'skull';
+    if (n === 'season' || n === 'garnish') return 'herb_bundle';
+    return 'tool_craft';
+  }
+
+  // 1b. Starting Ingredients & Presets Direct Identification
+  if (n === 'laser sword') return 'sword';
+  if (n === 'potion of invisibility') return 'potion';
+  if (n === 'cybernetic watch') return 'watch';
+  if (n === 'tonkotsu ramen') return 'food_bowl';
+  if (n === 'space shuttle') return 'rocket';
+  if (n === 'gourmet truffle pizza') return 'pizza';
+  if (n === 'phoenix feather wand') return 'wand';
+  if (n === 'quantum core reactor') return 'tech_core';
+
+  if (n === 'iron ore') return 'ore';
+  if (n === 'copper wire') return 'wire';
+  if (n === 'gold dust') return 'ground_powder';
+  if (n === 'crystal gem' || n === 'quartz' || n === 'mana crystal') return 'crystal';
+  if (n === 'silicon') return 'chip';
+  if (n === 'steel ingot') return 'ingot';
+  if (n === 'coal') return 'ore';
+  if (n === 'water') return 'water';
+  if (n === 'fire essence') return 'fire';
+  if (n === 'lightning orb') return 'lightning';
+  if (n === 'dark matter') return 'orb';
+  if (n === 'starlight') return 'star';
+  if (n === 'ice shard') return 'ice';
+  if (n === 'phoenix feather') return 'feather';
+  if (n === 'circuit board') return 'circuit';
+  if (n === 'microchip') return 'chip';
+  if (n === 'battery') return 'battery';
+  if (n === 'plasma core') return 'tech_core';
+  if (n === 'optical lens') return 'lens_optic';
+  if (n === 'gear') return 'gear';
+  if (n === 'magnet') return 'magnet';
+  if (n === 'fiber cable') return 'conduit_wire';
+  if (n === 'wood log') return 'wood';
+  if (n === 'leather strip' || n === 'cotton cloth') return 'cloth';
+  if (n === 'glass flask') return 'potion';
+  if (n === 'rubber') return 'billet';
+  if (n === 'clay') return 'dough';
+  if (n === 'coffee beans' || n === 'cocoa bean') return 'coffee_beans';
+  if (n === 'flour' || n === 'sugar') return 'ground_powder';
+  if (n === 'eggs') return 'food_bowl';
+  if (n === 'milk') return 'milk_pitcher';
+  if (n === 'cheese') return 'cheese';
+  if (n === 'tomatoes') return 'fruit';
+  if (n === 'exotic spices') return 'herb_bundle';
+  if (n === 'herb leaf') return 'leaf';
+  if (n === 'fresh ramen noodles') return 'spaghetti';
+  if (n === 'rich broth') return 'food_bowl';
+
+  // 2. High-Specificity Intermediate Archetypes
+  if (n.includes('espresso shot') || n.includes('demitasse') || n.includes('espresso extraction') || n.includes('shot glass')) return 'espresso_shot';
+  if (n.includes('pitcher') || n.includes('steamed milk') || n.includes('milk foam') || n.includes('microfoam') || n.includes('creamer')) return 'milk_pitcher';
+  if (n.includes('coffee bean') || n.includes('roasted bean') || n.includes('arabica') || (n.includes('bean') && !n.includes('jelly'))) return 'coffee_beans';
+  if (n.includes('ground coffee') || n.includes('coffee ground') || n.includes('flour') || n.includes('powder') || n.includes('grain') || n.includes('meal') || n.includes('puck') || n.includes('dust')) return 'ground_powder';
+
+  if (n.includes('dough') || n.includes('slurry') || n.includes('batter') || n.includes('proofing') || n.includes('proofed')) return 'dough';
+  if (n.includes('crust') || n.includes('pizza base') || n.includes('dough base')) return 'crust';
+  if (n.includes('sauce') || n.includes('marinara') || n.includes('reduction') || n.includes('puree') || n.includes('gravy') || n.includes('glaze') || n.includes('coulis') || n.includes('salsa')) return 'sauce';
+  if (n.includes('grated') || n.includes('shredded') || n.includes('shred') || (n.includes('cheese') && (n.includes('blend') || n.includes('melted')))) return 'grated_cheese';
+
+  if (n.includes('blade blank') || n.includes('blade core') || n.includes('spine') || n.includes('quenched blade') || n.includes('tempered blade')) return 'blade_blank';
+  if (n.includes('billet') || n.includes('metal block') || n.includes('blank') || n.includes('bar stock') || n.includes('slab')) return 'billet';
+  if (n.includes('hilt') || n.includes('grip') || n.includes('pommel') || n.includes('crossguard') || n.includes('handle')) return 'pommel_hilt';
+  if (n.includes('chassis') || n.includes('framework') || n.includes('housing') || n.includes('casing') || n.includes('structural member') || n.includes('frame') || n.includes('skeleton') || n.includes('enclosure')) return 'chassis';
+  if (n.includes('circuit') || n.includes('pcb') || n.includes('wafer') || n.includes('silicon die') || n.includes('motherboard') || n.includes('board') || n.includes('semiconductor')) return 'circuit';
+  if (n.includes('harness') || n.includes('wiring') || n.includes('bus') || n.includes('cable bundle') || n.includes('conduit')) return 'conduit_wire';
+  if (n.includes('mechanism') || n.includes('actuator') || n.includes('linkage') || n.includes('valve') || n.includes('piston') || n.includes('clockwork')) return 'mechanism';
+  if (n.includes('lens') || n.includes('optic') || n.includes('prism') || n.includes('laser emitter') || n.includes('collimator')) return 'lens_optic';
+  if (n.includes('herb') || n.includes('basil') || n.includes('sprig') || n.includes('garnish') || n.includes('seasoning') || n.includes('spices')) return 'herb_bundle';
+  if (n.includes('platter') || n.includes('course') || n.includes('dish') || n.includes('serving')) return 'food_platter';
+
+  // 3. High-Specificity Natural Keyword Overrides
   if (n.includes('gelato') || n.includes('ice cream') || n.includes('sorbet') || n.includes('sundae') || n.includes('parfait') || n.includes('cone')) return 'gelato';
   if (n.includes('spaghetti') || n.includes('meatball') || n.includes('pasta') || n.includes('lasagna') || n.includes('ravioli') || n.includes('fettuccine') || n.includes('noodle')) return 'spaghetti';
   if (n.includes('pizza') || n.includes('calzone') || n.includes('flatbread')) return 'pizza';
   if (n.includes('hot sauce') || n.includes('sauce') || n.includes('frank') || n.includes('sriracha') || n.includes('tabasco') || n.includes('condiment') || n.includes('ketchup') || n.includes('mustard') || n.includes('chili sauce') || n.includes('dip')) return 'hot_sauce';
-  if (hasTerm('tesla', 'roadster', 'car', 'automobile', 'vehicle', 'supercar', 'racecar', 'truck')) return 'car';
+  if (n.includes('tesla') || n.includes('roadster') || n.includes('car') || n.includes('automobile') || n.includes('vehicle') || n.includes('supercar') || n.includes('racecar') || n.includes('truck')) return 'car';
   if (n.includes('ufc') || n.includes('boxing') || n.includes('glove') || n.includes('mitt') || n.includes('handwrap')) return 'glove';
   if (n.includes('potion') || n.includes('invisibility') || n.includes('elixir') || n.includes('vial') || n.includes('flask') || n.includes('draught') || n.includes('serum') || n.includes('tonic') || n.includes('alchemy')) return 'potion';
-  if (hasTerm('macchiato', 'coffee', 'espresso', 'cappuccino', 'latte', 'mocha', 'frappe', 'cold brew', 'matcha', 'chai', 'tea', 'beverage', 'drink', 'smoothie', 'juice', 'cider', 'cocktail', 'wine', 'beer', 'ale', 'mug')) return 'drink';
+  if (n.includes('macchiato') || n.includes('coffee') || n.includes('espresso') || n.includes('cappuccino') || n.includes('latte') || n.includes('mocha') || n.includes('frappe') || n.includes('cold brew') || n.includes('matcha') || n.includes('chai') || n.includes('tea') || n.includes('beverage') || n.includes('drink') || n.includes('smoothie') || n.includes('juice') || n.includes('cider') || n.includes('cocktail') || n.includes('wine') || n.includes('beer') || n.includes('ale') || n.includes('mug')) return 'drink';
   if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq') || n.includes('bacon')) return 'meat';
   if (n.includes('bread') || n.includes('baguette') || n.includes('croissant') || n.includes('toast') || n.includes('bun') || n.includes('sourdough')) return 'bread';
   if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella') || n.includes('parmesan') || n.includes('gouda')) return 'cheese';
@@ -413,7 +539,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
   if (n.includes('dagger') || n.includes('knife') || n.includes('kunai') || n.includes('stiletto') || n.includes('shiv')) return 'dagger';
   if (n.includes('sword') || n.includes('blade') || n.includes('katana') || n.includes('saber') || n.includes('rapier') || n.includes('claymore') || n.includes('broadsword')) return 'sword';
   if (n.includes('axe') || n.includes('hatchet') || n.includes('cleaver') || n.includes('tomahawk')) return 'axe';
-  if (n.includes('hammer') || n.includes('mace') || n.includes('warhammer') || n.includes('mallet')) return 'hammer';
+  if (n.includes('hammer') || n.includes('mace') || n.includes('warhammer') || n.includes('mallet') || n.includes('crush') || n.includes('forge')) return 'hammer';
   if (n.includes('crossbow') || n.includes('arbalest')) return 'crossbow';
   if (n.includes('bow') || n.includes('arrow') || n.includes('longbow')) return 'bow';
   if (n.includes('blaster') || n.includes('laser') || n.includes('gun') || n.includes('rifle') || n.includes('pistol') || n.includes('cannon') || n.includes('plasma')) return 'blaster';
@@ -439,10 +565,10 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('ramen') || n.includes('soup') || n.includes('stew') || n.includes('broth') || n.includes('bowl')) return 'food_bowl';
   if (n.includes('burger') || n.includes('sandwich') || n.includes('taco') || n.includes('burrito')) return 'burger';
-  if (n.includes('cake') || n.includes('pastry') || n.includes('pie') || n.includes('cookie') || n.includes('donut')) return 'cake';
+  if (n.includes('cake') || n.includes('pastry') || n.includes('pie') || n.includes('cookie') || n.includes('bake') || n.includes('donut')) return 'cake';
   if (n.includes('steak') || n.includes('meat') || n.includes('roast') || n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('ribs') || n.includes('bbq')) return 'meat';
   if (n.includes('bread') || n.includes('baguette') || n.includes('toast') || n.includes('flour') || n.includes('croissant')) return 'bread';
-  if (hasTerm('tea', 'coffee', 'drink', 'juice', 'mug', 'latte', 'cocktail', 'wine', 'beer')) return 'drink';
+  if (n.includes('tea') || n.includes('coffee') || n.includes('drink') || n.includes('juice') || n.includes('mug') || n.includes('latte') || n.includes('cocktail') || n.includes('wine') || n.includes('beer')) return 'drink';
   if (n.includes('sushi') || n.includes('sashimi') || n.includes('maki') || n.includes('nigiri')) return 'sushi';
   if (n.includes('cheese') || n.includes('cheddar') || n.includes('mozzarella')) return 'cheese';
   if (n.includes('apple') || n.includes('berry') || n.includes('fruit') || n.includes('orange') || n.includes('lemon') || n.includes('grape') || n.includes('banana') || n.includes('cherry')) return 'fruit';
@@ -450,7 +576,7 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('core') || n.includes('reactor') || n.includes('quantum') || n.includes('fusion') || n.includes('engine')) return 'tech_core';
   if (n.includes('chip') || n.includes('cpu') || n.includes('circuit') || n.includes('microchip') || n.includes('processor')) return 'chip';
-  if (n.includes('battery') || n.includes('power cell')) return 'battery';
+  if (n.includes('battery') || n.includes('power cell') || n.includes('charge')) return 'battery';
   if (n.includes('robot') || n.includes('mech') || n.includes('android') || n.includes('golem')) return 'robot';
   if (n.includes('rocket') || n.includes('starship') || n.includes('shuttle')) return 'rocket';
   if (n.includes('watch') || n.includes('clock') || n.includes('timer')) return 'watch';
@@ -463,12 +589,12 @@ export function detectArchetype(name: string = '', category: string = '', emoji:
 
   if (n.includes('key') || n.includes('lockpick')) return 'key';
   if (n.includes('chest') || n.includes('crate') || n.includes('box')) return 'chest';
-  if (n.includes('ingot') || n.includes('bar') || n.includes('alloy')) return 'ingot';
+  if (n.includes('ingot') || n.includes('bar') || n.includes('alloy') || n.includes('smelt')) return 'ingot';
   if (n.includes('ore') || n.includes('stone') || n.includes('rock') || n.includes('mineral')) return 'ore';
   if (n.includes('wood') || n.includes('log') || n.includes('timber') || n.includes('plank')) return 'wood';
   if (n.includes('cloth') || n.includes('fabric') || n.includes('silk') || n.includes('thread') || n.includes('leather') || n.includes('weave')) return 'cloth';
-  if (n.includes('anvil')) return 'anvil';
-  if (n.includes('tool')) return 'tool_craft';
+  if (n.includes('anvil') || n.includes('weld')) return 'anvil';
+  if (n.includes('cut') || n.includes('shape') || n.includes('mold') || n.includes('tool')) return 'tool_craft';
 
   if (n.includes('crystal') || n.includes('gem') || n.includes('diamond') || n.includes('ruby') || n.includes('emerald') || n.includes('sapphire')) return 'crystal';
   if (n.includes('fish') || n.includes('seafood') || n.includes('salmon') || n.includes('tuna')) return 'fish';

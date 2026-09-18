@@ -141,7 +141,7 @@ export class GenAIGeminiClient extends EventEmitter<GeminiClientEventTypes> {
 
   async sendMessage(message: Part[], config?: GenerateContentConfig): Promise<GenerateContentResponse> {
     if (!this.chat) {
-      this.startChat("gemini-3.7-flash", config);
+      this.startChat("gemini-3.8-flash", config);
     }
     const sendMessageParameters: SendMessageParameters = { message, config: config }
     this.log({ type: 'send-message', direction: 'send', message: sendMessageParameters });
@@ -157,7 +157,7 @@ export class GenAIGeminiClient extends EventEmitter<GeminiClientEventTypes> {
 
   async sendMessageStream(onUpdate: (text: string) => void, message: Part[], config?: GenerateContentConfig): Promise<void> {
     if (!this.chat) {
-      this.startChat("gemini-3.7-flash", config);
+      this.startChat("gemini-3.8-flash", config);
     }
     const sendMessageParameters: SendMessageParameters = { message, config: config }
     this.log({ type: 'send-message-stream', direction: 'send', message: sendMessageParameters });

@@ -22,6 +22,7 @@ interface FinishedItemBoxProps {
   onClearItem: () => void;
   onInspectSprite?: (item: FinishedItem) => void;
   onUploadSprite?: (item: FinishedItem) => void;
+  onLoadRecipe?: (item: FinishedItem) => void;
 }
 
 export function FinishedItemBox({
@@ -34,19 +35,40 @@ export function FinishedItemBox({
   onClearItem,
   onInspectSprite,
   onUploadSprite,
+  onLoadRecipe,
 }: FinishedItemBoxProps) {
   const [showFullMetrics, setShowFullMetrics] = useState<boolean>(true);
+  const [copiedRecipe, setCopiedRecipe] = useState<boolean>(false);
+  const [showStagesList, setShowStagesList] = useState<boolean>(false);
+
+  const handleCopyRecipe = async () => {
+    if (!finishedItem) return;
+    const text = `Crafted Item: ${finishedItem.name} (${finishedItem.rarity})\n` +
+      `Description: ${finishedItem.description}\n` +
+      `Category: ${finishedItem.category || 'Crafted'}\n` +
+      `Tools Used (${finishedItem.toolsUsed.length}): ${finishedItem.toolsUsed.join(', ')}\n` +
+      `Materials (${finishedItem.ingredientsUsed.length}): ${finishedItem.ingredientsUsed.join(', ')}\n` +
+      (finishedItem.ingredientHistory && finishedItem.ingredientHistory.length > 0 ? `Component History: ${finishedItem.ingredientHistory.join(' -> ')}\n` : '');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedRecipe(true);
+      setTimeout(() => setCopiedRecipe(false), 2500);
+    } catch {
+      // Fallback if clipboard API not permitted in iframe
+    }
+  };
   if (isCrafting) {
     const progressPercent = progress.total
       ? Math.min(100, Math.round((progress.step / progress.total) * 100))
       : progress.phase === 'planning'
         ? 8
-        : Math.min(88, 18 + progress.step * 13);
+        : Math.min(94, Math.round(15 + (1 - Math.exp(-progress.step / 6)) * 75));
     const phaseLabel = progress.phase === 'planning'
-      ? 'Planning a logical recipe'
+      ? 'Formulating logical recipe'
       : progress.phase === 'processing'
-        ? 'Transforming materials'
-        : 'Revealing the new component';
+        ? `Stage ${progress.step} in progress`
+        : 'Revealing newly fabricated component';
 
     return (
       <div className="finished-box-container crafting-active">
@@ -65,18 +87,20 @@ export function FinishedItemBox({
             <div className="status-title" aria-live="polite">{phaseLabel}</div>
             <div className="status-sub" aria-live="polite">
               {activeAction ? (
-                <>Applying tool: <code className="active-action-code">{activeAction}()</code></>
+                <>Executing tool: <code className="active-action-code">{activeAction}()</code></>
               ) : (
-                'Choosing materials and ordering the stages...'
+                'Processing materials and formulating stages...'
               )}
             </div>
           </div>
           <div className="craft-progress-panel" aria-label="Crafting progress">
             <div className="craft-progress-copy">
               <span>
-                {progress.step > 0 ? `Stage ${progress.step}${progress.total ? ` of ${progress.total}` : ''}` : 'Recipe setup'}
+                {progress.step > 0
+                  ? (progress.total ? `Stage ${progress.step} of ${progress.total}` : `Stage ${progress.step} • Formulating thoroughly`)
+                  : 'Formulation setup'}
               </span>
-              <span>{progress.phase === 'revealing' ? 'New sprite ready' : 'Working...'}</span>
+              <span>{progress.phase === 'revealing' ? 'Component forged' : 'Active transformation...'}</span>
             </div>
             <div
               className={`craft-progress-track ${progress.total ? '' : 'indeterminate'}`}
@@ -108,7 +132,7 @@ export function FinishedItemBox({
           <h3 className="placeholder-title">Ready to Create Anything</h3>
           <p className="placeholder-text">
             Type any item, food, weapon, or gadget in the bar above and click <strong>"Synthesize & Mix"</strong>. 
-            Gemini 3 Flash will sequence function calls and generate the finished product with its matching sprite right here!
+            Gemini 3.8 Flash will sequence function calls through a 10–15 stage progression and generate the finished product with its matching 64x64 sprite right here!
           </p>
         </div>
       </div>
@@ -175,6 +199,9 @@ export function FinishedItemBox({
             emoji={finishedItem.emoji}
             color={rarityColor}
             rarity={finishedItem.rarity}
+            description={finishedItem.description}
+            ingredientHistory={finishedItem.ingredientsUsed}
+            processHistory={finishedItem.toolsUsed}
             size="large"
             showRarityBadge={true}
           />
@@ -253,7 +280,7 @@ export function FinishedItemBox({
             </div>
           )}
 
-          <div className="finished-item-actions-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="finished-item-actions-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             {onInspectSprite && (
               <button
                 type="button"
@@ -286,7 +313,112 @@ export function FinishedItemBox({
                 <span>📷 Upload Custom Sprite</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleCopyRecipe}
+              style={{
+                background: copiedRecipe ? 'rgba(34, 197, 94, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+                border: copiedRecipe ? '1px solid #22c55e' : '1px solid rgba(148, 163, 184, 0.25)',
+                color: copiedRecipe ? '#4ade80' : '#cbd5e1',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease',
+              }}
+              title="Copy crafting formulation summary to clipboard"
+            >
+              <span>{copiedRecipe ? '✅ Copied Formulation!' : '📋 Copy Formulation'}</span>
+            </button>
+            {onLoadRecipe && (
+              <button
+                type="button"
+                onClick={() => onLoadRecipe(finishedItem)}
+                style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid #f59e0b',
+                  color: '#fbbf24',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+                title="Load materials and goal back onto crafting bench"
+              >
+                <span>🔨 Load to Bench</span>
+              </button>
+            )}
+            {finishedItem.processHistory && finishedItem.processHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowStagesList(!showStagesList)}
+                style={{
+                  background: showStagesList ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)',
+                  border: '1px solid rgba(139, 92, 246, 0.35)',
+                  color: '#c084fc',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span>{showStagesList ? '🔽 Hide Pipeline' : `📜 View ${finishedItem.processHistory.length} Stages`}</span>
+              </button>
+            )}
           </div>
+
+          {showStagesList && finishedItem.processHistory && finishedItem.processHistory.length > 0 && (
+            <div
+              style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                background: 'rgba(15, 23, 42, 0.7)',
+                borderRadius: '8px',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                Multi-Stage Pipeline Execution ({finishedItem.processHistory.length} Steps):
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                {finishedItem.processHistory.map((step, idx) => (
+                  <React.Fragment key={idx}>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontFamily: 'monospace',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {idx + 1}. {step}()
+                    </span>
+                    {idx < finishedItem.processHistory!.length - 1 && (
+                      <span style={{ color: '#64748b', fontSize: '11px' }}>➔</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

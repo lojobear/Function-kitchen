@@ -27,15 +27,15 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
-// Keep console clean from harmless offline background retry messages
-setLogLevel('error');
+// Suppress internal Firestore connection retry & offline noise
+setLogLevel('silent');
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let firestoreInstance: Firestore;
 try {
   firestoreInstance = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
   }, firebaseConfig.firestoreDatabaseId);
 } catch {
   firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -44,6 +44,9 @@ try {
 export const db: Firestore = firestoreInstance;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 export enum OperationType {
   CREATE = 'create',
@@ -94,6 +97,9 @@ export async function testConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// Perform initial connection test
+testConnection().catch(() => {});
 
 export { 
   signInWithPopup, 

@@ -100,6 +100,10 @@
     "/custom_sprites/{spriteId}": {
       "schema": "CustomSprite",
       "description": "Global custom uploaded sprites replacing default procedural sprites for everyone"
+    },
+    "/test/connection": {
+      "schema": "UserProfile",
+      "description": "Health check document to validate live Firestore connectivity"
     }
   }
 }

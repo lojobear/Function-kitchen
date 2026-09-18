@@ -7,6 +7,8 @@ import React, { useRef, useState } from 'react';
 import { ItemSprite } from './ItemSprite';
 import { getItemColor, RARITY_PALETTES } from '../lib/sprite-engine';
 import { FinishedItem } from '../constants';
+import { computeCanonicalItemId } from '../lib/canonical-item';
+import { getSavedSprite } from '../lib/pollinations-sprite-pipeline';
 
 interface SpriteInspectorModalProps {
   item: FinishedItem | null;
@@ -28,6 +30,15 @@ export function SpriteInspectorModal({
   const [copied, setCopied] = useState(false);
 
   if (!isOpen || !item) return null;
+
+  const canonicalId = computeCanonicalItemId({
+    name: item.name,
+    category: item.category,
+    rarity: activeRarity,
+    description: item.description,
+    ingredientHistory: item.ingredientsUsed,
+    processHistory: item.toolsUsed,
+  });
 
   const handleDownloadPng = () => {
     // Locate the canvas inside the modal sprite box
@@ -69,11 +80,33 @@ export function SpriteInspectorModal({
                 rarity={activeRarity}
                 size="large"
                 showRarityBadge={true}
+                canonicalId={canonicalId}
+                description={item.description}
+                ingredientHistory={item.ingredientsUsed}
+                processHistory={item.toolsUsed}
               />
             </div>
 
-            <button onClick={handleDownloadPng} className="download-sprite-btn">
-              💾 Download Sprite (PNG)
+            <div
+              style={{
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                color: '#94a3b8',
+                background: '#090d16',
+                border: '1px solid #1e293b',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                marginTop: '8px',
+                wordBreak: 'break-all',
+                textAlign: 'center',
+              }}
+              title="Deterministic Canonical ID"
+            >
+              ID: {canonicalId}
+            </div>
+
+            <button onClick={handleDownloadPng} className="download-sprite-btn" style={{ marginTop: '8px' }}>
+              💾 Download 64x64 Sprite (PNG)
             </button>
 
             {onOpenUploader && (

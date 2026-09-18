@@ -59,6 +59,8 @@ export interface FinishedItem {
   description: string;
   toolsUsed: string[];
   ingredientsUsed: string[];
+  ingredientHistory?: string[];
+  processHistory?: string[];
   tags?: string[];
   createdAt: Date;
 }
@@ -207,6 +209,7 @@ export const STARTING_INGREDIENTS: Ingredient[] = [
   { name: 'clay', emoji: '🧱', category: 'Crafting' },
 
   // Culinary Staples
+  { name: 'coffee beans', emoji: '🫘', category: 'Food' },
   { name: 'flour', emoji: '🌾', category: 'Food' },
   { name: 'eggs', emoji: '🥚', category: 'Food' },
   { name: 'milk', emoji: '🥛', category: 'Food' },
@@ -329,22 +332,31 @@ ${actionList}
 **Inventory Highlights:**
 ${inventoryList}
 
-**CRITICAL CRAFTING PRINCIPLES & LOGICAL WORKFLOW:**
-1. **NO INSTANT SHORTCUTS**: Crafting should NOT be the fastest route to the item. Every masterpiece requires authentic craftsmanship, step-by-step component fabrication, and logical assembly (typically **4 to 6 deliberate, logical steps**).
-2. **STEP-BY-STEP LOGICAL PROGRESSION**:
-   - **Stage 1 - Material Refining**: Refine raw base materials into workable stock (e.g., \`smelt(["iron ore", "coal"])\` for steel, \`crush\` / \`extract\` for essences, \`knead\` for dough, \`laser_cut\` for substrates).
-   - **Stage 2 - Component & Sub-Assembly Fabrication**: Craft the distinct individual parts (e.g., \`forge\` the blade/chassis, \`carve\` the hilt/stock, \`program\` the microchip, \`simmer\` the sauce base).
-   - **Stage 3 - Sub-System Assembly**: Connect and integrate the fabricated components together (e.g., \`assemble(["blade", "hilt", "leather strip"])\` or \`wire(["microchip", "battery", "casing"])\`).
-   - **Stage 4 - Refinement, Calibration & Enhancement**: Treat, calibrate, tune, season, or enchant the assembled piece (e.g., \`calibrate\` / \`temper\` / \`enchant\` / \`bake\`).
-   - **Stage 5 - Final Completion**: ONLY once all sub-components and treatments are complete, call \`finish_item(item_name="${targetGoal || 'Finished Item'}", description="...", rarity="...")\`!
-3. **LOGICAL TOOL-MATERIAL PAIRING**:
+**CRITICAL CRAFTING PRINCIPLES & WORKFLOW:**
+1. **STRICT 10 TO 15 STEPS PROGRESSION (MANDATORY)**:
+   - The formulation sequence MUST be kept strictly within **10 steps to 15 steps**.
+   - Never rush or conclude before step 10. You must plan and execute at least 10 deliberate function calls to properly formulate the requested creation with authentic technical, culinary, or alchemical depth.
+   - Never exceed 15 steps. Once you reach steps 11-14, conclude your remaining assembly/calibrations, and call finish_item(...) at or before step 15 to complete the masterpiece.
+
+2. **COMPREHENSIVE MULTI-STAGE FORMULATION (10-15 DELIBERATE STAGES)**:
+   - **Stage 1-3 - Material Preparation & Extraction**: Sift, inspect, crush, extract, or smelt base materials into pure workable stock.
+   - **Stage 4-6 - Sub-Component Fabrication**: Forge, carve, knead, roll, cut, or brew distinct individual parts, doughs, or mechanisms.
+   - **Stage 7-9 - Sub-Assembly & Structural Integration**: Wire, solder, simmer, layer, or assemble intermediate modules and structural frameworks.
+   - **Stage 10-13 - Refinement, Tempering, Calibration & Seasoning**: Heat-temper, bake, reduce, steam, calibrate harmonic frequencies, or season the composite creation.
+   - **Stage 11-15 - Masterpiece Completion**: Call finish_item(item_name="${targetGoal || 'Finished Item'}", description="...", rarity="...") to conclude the craft!
+
+3. **AUTHENTIC INTERMEDIATE PRODUCTS**:
+   - Every intermediate product produced is a real item with its own unique identity and sprite.
+   - Never output duplicate generic components. Each intermediate reflects its exact physical stage.
+
+4. **LOGICAL TOOL-MATERIAL PAIRING**:
    - Metallurgy: \`smelt\`, \`forge\`, \`weld\`, \`temper\`, \`quench\`, \`polish\`
    - Technology: \`program\`, \`wire\`, \`laser_cut\`, \`calibrate\`, \`charge\`, \`assemble\`
    - Alchemy & Magic: \`distill\`, \`brew\`, \`infuse\`, \`crystallize\`, \`enchant\`, \`bind\`
-   - Culinary: \`knead\`, \`chop\`, \`simmer\`, \`shred\`, \`bake\`, \`roast\`, \`garnish\`
-4. **ONE TOOL PER TURN**: Output exactly ONE function call per turn. Include a concise 1-sentence thought explaining which part or component you are logically producing next.
-5. If intermediate materials are needed that are not currently in the inventory, synthesize them first from your raw materials.
+   - Culinary: \`knead\`, \`chop\`, \`simmer\`, \`shred\`, \`bake\`, \`roast\`, \`garnish\`, \`steam\`, \`brew\`
 
-Be thoughtful, logical, and masterfully authentic in your crafting process!`;
+5. **ONE TOOL PER TURN**: Output exactly ONE function call per turn with a concise 1-sentence thought explaining which part or component you are logically producing next.
+
+Keep the progression strictly between 10 and 15 steps!`;
 }
 

@@ -21,6 +21,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Health / connection test document
+    match /test/connection {
+      allow read: if true;
+    }
+
     // Community Custom Sprites (Visible to everyone)
     match /custom_sprites/{spriteId} {
       allow read: if true;

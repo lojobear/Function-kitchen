@@ -4,8 +4,16 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { drawProceduralSprite, getItemColor, RARITY_PALETTES, SpriteConfig } from '../lib/sprite-engine';
-import { enqueueBackgroundSpriteGeneration, getCachedSprite, onSpriteUpdated } from '../lib/background-sprite-painter';
+import { getItemColor, RARITY_PALETTES, SpriteConfig } from '../lib/sprite-engine';
+import { drawProceduralSprite64 } from '../lib/sprite-engine-64';
+import {
+  enqueueBackgroundSpriteGeneration,
+  getCachedSprite,
+  onSpriteUpdated,
+  getSavedSprite,
+  subscribeSpriteReady,
+  isSpriteGenerating,
+} from '../lib/background-sprite-painter';
 import { getCustomSprite, subscribeCustomSprites, CustomSpriteRecord } from '../lib/custom-sprite-service';
 
 function drawGenerationPlaceholder(canvas: HTMLCanvasElement, size: number, color: string) {
@@ -53,6 +61,10 @@ export interface ItemSpriteProps {
   onClick?: () => void;
   onUploadSprite?: () => void;
   showCustomBadge?: boolean;
+  canonicalId?: string;
+  description?: string;
+  ingredientHistory?: string[];
+  processHistory?: string[];
 }
 
 export function ItemSprite({
@@ -68,11 +80,15 @@ export function ItemSprite({
   onClick,
   onUploadSprite,
   showCustomBadge = true,
+  canonicalId,
+  description,
+  ingredientHistory,
+  processHistory,
 }: ItemSpriteProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hovered, setHovered] = useState(false);
   const [spriteRevision, setSpriteRevision] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(() => !getCachedSprite(name));
+  const [isGenerating, setIsGenerating] = useState(() => isSpriteGenerating(canonicalId || name));
   const [customSprite, setCustomSprite] = useState<CustomSpriteRecord | undefined>(() => getCustomSprite(name));
 
   // Size mapping
@@ -91,21 +107,38 @@ export function ItemSprite({
 
   // Enqueue background generation immediately (non-blocking) and subscribe to updates
   useEffect(() => {
-    setIsGenerating(!getCachedSprite(name));
+    setIsGenerating(isSpriteGenerating(canonicalId || name));
 
-    const unsubscribe = onSpriteUpdated((updatedName) => {
+    const unsubscribePainter = onSpriteUpdated((updatedName) => {
       if (updatedName.toLowerCase().trim() === name.toLowerCase().trim()) {
         setIsGenerating(false);
         setSpriteRevision((prev) => prev + 1);
       }
     });
 
+    const unsubscribePollinations = subscribeSpriteReady((record) => {
+      if (
+        (record.displayName && record.displayName.toLowerCase().trim() === name.toLowerCase().trim()) ||
+        (canonicalId && record.canonicalId === canonicalId)
+      ) {
+        setIsGenerating(false);
+        setSpriteRevision((prev) => prev + 1);
+      }
+    });
+
     if (name && name.trim()) {
-      enqueueBackgroundSpriteGeneration(name, category, emoji, rarity);
+      enqueueBackgroundSpriteGeneration(name, category, emoji, rarity, {
+        description,
+        ingredientHistory,
+        processHistory,
+      });
     }
 
-    return unsubscribe;
-  }, [name, category, emoji, rarity]);
+    return () => {
+      unsubscribePainter();
+      unsubscribePollinations();
+    };
+  }, [name, category, emoji, rarity, canonicalId, description, ingredientHistory, processHistory]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -157,11 +190,53 @@ export function ItemSprite({
       return;
     }
 
-    if (!getCachedSprite(name)) {
-      drawGenerationPlaceholder(canvas, pxSize, computedColor);
+    // 1. Check if an authentic 64x64 Pollinations sprite has been saved
+    const savedSprite = getSavedSprite(canonicalId || name);
+    if (savedSprite?.dataUrl) {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      canvas.width = pxSize;
+      canvas.height = pxSize;
+
+      // Dark radial background
+      const bgGrad = ctx.createRadialGradient(
+        pxSize / 2, 1, pxSize / 2,
+        pxSize / 2, pxSize / 2, pxSize * 0.7
+      );
+      bgGrad.addColorStop(0, '#151d2f');
+      bgGrad.addColorStop(0.7, '#0a0e18');
+      bgGrad.addColorStop(1, '#03060c');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, pxSize, pxSize);
+
+      // Ambient halo matching rarity / item primary color
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pxSize / 2, pxSize / 2, pxSize * 0.38, 0, Math.PI * 2);
+      ctx.fillStyle = `${computedColor}2b`;
+      ctx.shadowColor = computedColor;
+      ctx.shadowBlur = pxSize >= 80 ? 16 : 8;
+      ctx.fill();
+      ctx.restore();
+
+      // Draw authentic 64x64 pixel art sprite with nearest-neighbor scaling (no blur)
+      const img = new Image();
+      img.onload = () => {
+        ctx.imageSmoothingEnabled = false;
+        const pad = Math.floor(pxSize * 0.08);
+        const drawArea = pxSize - pad * 2;
+        const scale = Math.min(drawArea / img.width, drawArea / img.height);
+        const dw = Math.floor(img.width * scale);
+        const dh = Math.floor(img.height * scale);
+        const dx = Math.floor((pxSize - dw) / 2);
+        const dy = Math.floor((pxSize - dh) / 2);
+        ctx.drawImage(img, dx, dy, dw, dh);
+      };
+      img.src = savedSprite.dataUrl;
       return;
     }
 
+    // 2. Immediate high-fidelity 64x64 procedural pixel-art sprite
     const spriteConfig: SpriteConfig = {
       name,
       emoji,
@@ -170,8 +245,8 @@ export function ItemSprite({
       rarity,
     };
 
-    drawProceduralSprite(canvas, spriteConfig, pxSize);
-  }, [name, emoji, category, computedColor, rarity, pxSize, customSprite, spriteRevision]);
+    drawProceduralSprite64(canvas, spriteConfig, pxSize);
+  }, [name, emoji, category, computedColor, rarity, pxSize, customSprite, spriteRevision, canonicalId]);
 
   return (
     <div

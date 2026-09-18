@@ -123,6 +123,7 @@ export const responseModalityOptions = [
 ];
 
 export const modelOptions = [
+  { value: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
   { value: "gemini-3.7-flash", label: "Gemini 3.7 Flash" },
   { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
 ];
@@ -131,3 +132,13 @@ export const functionApprovalOptions = [
   { value: "manual", label: "Require approval" },
   { value: "auto", label: "Auto approve functions" },
 ];
+
+// Re-export game types from constants
+export type {
+  Ingredient,
+  KitchenAction,
+  CombinationResult,
+  TimelineEntry,
+  FinishedItem,
+} from './constants';
+

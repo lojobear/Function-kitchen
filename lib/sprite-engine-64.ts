@@ -4,12 +4,21 @@
  */
 
 /**
- * 64x64 High-Definition Procedural Pixel Art Sprite Engine
- * Renders crisp 64x64 pixel art matrices with a rich limited palette,
+ * 64-Bit High-Definition Procedural Pixel Art Sprite Engine
+ * Renders exquisite 64x64 pixel art matrices with rich 64-bit color fidelity,
  * dedicated tool archetypes, and authentic item representations.
  */
 
-import { ItemArchetype, SpritePRNG, hashString } from './sprite-engine';
+import {
+  ItemArchetype,
+  SpritePRNG,
+  hashString,
+  detectArchetype,
+  getItemColor,
+  shadeColor,
+  RARITY_PALETTES,
+  SpriteConfig,
+} from './sprite-engine';
 
 export type PixelMatrix64 = number[][];
 
@@ -45,6 +54,19 @@ export function fillHLine64(g: PixelMatrix64, x0: number, x1: number, y: number,
   if (iy < 0 || iy >= 64) return;
   for (let x = start; x <= end; x++) {
     g[iy][x] = val;
+  }
+}
+
+/**
+ * Vertical line fill
+ */
+export function fillVLine64(g: PixelMatrix64, x: number, y0: number, y1: number, val: number) {
+  const start = Math.max(0, Math.min(y0, y1));
+  const end = Math.min(63, Math.max(y0, y1));
+  const ix = Math.floor(x);
+  if (ix < 0 || ix >= 64) return;
+  for (let y = start; y <= end; y++) {
+    g[y][ix] = val;
   }
 }
 
@@ -147,107 +169,6 @@ export function addAutomaticOutlines64(g: PixelMatrix64) {
   }
 }
 
-function getSemanticAccent64(itemName: string, itemCategory: string, hash: number): number {
-  const identity = `${itemName} ${itemCategory}`.toLowerCase();
-  if (/fire|flame|ember|magma|solar|hot/.test(identity)) return 10;
-  if (/ice|frost|water|ocean|aqua|cryo/.test(identity)) return 14;
-  if (/nature|leaf|herb|moss|wood|plant|bio/.test(identity)) return 12;
-  if (/magic|arcane|mana|void|shadow|enchanted/.test(identity)) return 13;
-  if (/electric|lightning|energy|plasma|power|cyber|quantum/.test(identity)) return 18;
-  if (/royal|gold|sun|legend|divine/.test(identity)) return 11;
-  if (/blood|ruby|crimson|red/.test(identity)) return 9;
-  if (/coffee|espresso|cocoa|wood|leather|earth/.test(identity)) return 23;
-  return [9, 10, 11, 12, 13, 14, 18, 19, 22, 23][hash % 10];
-}
-
-/**
- * Adds name-seeded material marks without distorting the handcrafted
- * archetype. Two swords remain readable as swords, but no longer share every
- * highlight, inlay, spark, rune, or surface band.
- */
-function applyArtisanDetailPass64(
-  g: PixelMatrix64,
-  rng: SpritePRNG,
-  hash: number,
-  itemName: string,
-  itemCategory: string,
-  archetype: ItemArchetype
-) {
-  let minX = 63;
-  let minY = 63;
-  let maxX = 0;
-  let maxY = 0;
-  let occupied = 0;
-
-  for (let y = 0; y < 64; y++) {
-    for (let x = 0; x < 64; x++) {
-      if (g[y][x] === 0) continue;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-      occupied += 1;
-    }
-  }
-  if (occupied === 0) return;
-
-  const accent = getSemanticAccent64(itemName, itemCategory, hash);
-  const detailTarget = archetype.startsWith('tool_') ? 22 : 16;
-  let details = 0;
-
-  // A restrained diagonal material inlay creates a coherent surface pattern
-  // instead of random noise. Its spacing and phase come from the full name.
-  const bandGap = 6 + (hash % 4);
-  const bandPhase = (hash >>> 5) % bandGap;
-  let bandPixels = 0;
-  for (let y = minY + 2; y <= maxY - 2 && bandPixels < 42; y++) {
-    for (let x = minX + 2; x <= maxX - 2 && bandPixels < 42; x++) {
-      const isInterior = g[y][x] > 1
-        && g[y][x - 1] > 0
-        && g[y][x + 1] > 0
-        && g[y - 1][x] > 0
-        && g[y + 1][x] > 0;
-      if (!isInterior) continue;
-      if ((x + y + bandPhase) % bandGap !== 0) continue;
-      if (((x * 3 + y + hash) & 3) !== 0) continue;
-      g[y][x] = accent;
-      bandPixels += 1;
-    }
-  }
-
-  for (let attempt = 0; attempt < detailTarget * 14 && details < detailTarget; attempt++) {
-    const x = rng.int(Math.max(1, minX + 1), Math.min(62, maxX - 1));
-    const y = rng.int(Math.max(1, minY + 1), Math.min(62, maxY - 1));
-    const isInterior = g[y][x] > 1
-      && g[y][x - 1] > 0
-      && g[y][x + 1] > 0
-      && g[y - 1][x] > 0
-      && g[y + 1][x] > 0;
-    if (!isInterior) continue;
-
-    g[y][x] = details % 5 === 0 ? 5 : accent;
-    if (details % 4 === 0 && x + 1 < maxX && g[y][x + 1] > 1) {
-      g[y][x + 1] = accent;
-    }
-    details += 1;
-  }
-
-  // Small process particles make action tiles feel active and are positioned
-  // from the full process name, rather than copied from a shared badge.
-  if (archetype.startsWith('tool_')) {
-    const particleCount = 3 + (hash % 4);
-    for (let i = 0; i < particleCount; i++) {
-      const side = rng.bool() ? -1 : 1;
-      const x = side < 0
-        ? Math.max(3, minX - rng.int(3, 8))
-        : Math.min(60, maxX + rng.int(3, 8));
-      const y = Math.max(3, Math.min(60, minY + rng.int(0, Math.max(2, maxY - minY))));
-      setP64(g, x, y, accent);
-      if (i === 0) setP64(g, x + (side < 0 ? -1 : 1), y - 1, 5);
-    }
-  }
-}
-
 /**
  * Generate high-definition 64x64 pixel art matrix for any archetype
  */
@@ -263,7 +184,7 @@ export function generateArchetypePixelMatrix64(
 
   switch (archetype) {
     // ========================================================================
-    // CRAFTING TOOLS & PROCESSES (Accurate, Dedicated 64x64 Sprites)
+    // CRAFTING TOOLS & PROCESSES (Accurate, Dedicated 64-Bit Sprites)
     // ========================================================================
 
     case 'tool_smelt': {
@@ -1998,98 +1919,527 @@ export function generateArchetypePixelMatrix64(
       break;
     }
 
-    case 'artifact': {
-      // Ancient Celestial Astrolabe / Forged Relic Talisman
-      for (let y = 18; y <= 46; y++) {
-        const span = y <= 32 ? Math.floor((y - 18) * 0.9) : Math.floor((46 - y) * 0.9);
-        fillHLine64(g, 32 - span - 4, 32 + span + 4, y, 11); // Gold filigree
-        fillHLine64(g, 32 - span, 32 + span, y, 6);          // Dark obsidian core
+    // ========================================================================
+    // DEDICATED INTERMEDIATES & CRAFTING STAGE ARCHETYPES (High Visual Variety)
+    // ========================================================================
+
+    case 'dough': {
+      // Pliable, soft raw artisan dough ball on floured surface
+      fillCircle64(g, 32, 38, 16, 10); // Warm dough base
+      fillCircle64(g, 31, 36, 14, 11); // Hydrated flour body
+      fillCircle64(g, 29, 32, 8, 5);   // Specular highlight / dusting
+      // Delicate surface folds
+      drawLine64(g, 24, 42, 34, 44, 10);
+      drawLine64(g, 32, 40, 42, 41, 10);
+      // Flour dusting specks
+      setP64(g, 24, 30, 5); setP64(g, 38, 33, 5); setP64(g, 35, 27, 5);
+      break;
+    }
+
+    case 'crust': {
+      // Stone-fired hearth pizza / bread crust base with blister marks
+      fillCircle64(g, 32, 36, 20, 2);  // Charred stone edge
+      fillCircle64(g, 32, 36, 18, 10); // Golden baked rim
+      fillCircle64(g, 32, 36, 14, 11); // Tender center crumb
+      // Char blister spots (leopard spotting)
+      fillCircle64(g, 24, 32, 3, 6);
+      fillCircle64(g, 38, 38, 2, 6);
+      fillCircle64(g, 30, 24, 2, 6);
+      fillCircle64(g, 42, 30, 2, 6);
+      break;
+    }
+
+    case 'sauce': {
+      // Glossy culinary ramekin / reduction bowl with fragrant tomato sauce
+      fillCircle64(g, 32, 38, 18, 7);  // White porcelain ramekin rim
+      fillCircle64(g, 32, 38, 15, 8);
+      fillCircle64(g, 32, 37, 13, 16); // Deep simmered tomato red
+      fillCircle64(g, 30, 35, 9, 17);  // Glossy reflection
+      fillCircle64(g, 28, 32, 4, 5);   // Specular shine
+      // Herb flecks
+      setP64(g, 32, 34, 13); setP64(g, 36, 38, 13); setP64(g, 27, 40, 13);
+      break;
+    }
+
+    case 'grated_cheese': {
+      // Mountain of delicate hand-grated cheese shreds
+      fillCircle64(g, 32, 40, 16, 10); // Base golden cheddar
+      for (let i = 0; i < 18; i++) {
+        const sx = 20 + rng.int(0, 24);
+        const sy = 26 + rng.int(0, 20);
+        const len = 3 + rng.int(0, 5);
+        drawLine64(g, sx, sy, sx + len, sy + 2, i % 2 === 0 ? 11 : 5);
       }
-      drawCircleRing64(g, 32, 32, 10, 14, 2);
-      fillCircle64(g, 32, 32, 6, 18);
-      fillCircle64(g, 32, 32, 3, 5);
+      break;
+    }
+
+    case 'coffee_beans': {
+      // Cluster of dark roasted whole arabica beans with signature crease
+      // Bean 1 (left)
+      for (let y = 24; y <= 38; y++) {
+        const span = Math.floor(Math.sin(((y - 24) / 14) * Math.PI) * 7);
+        fillHLine64(g, 25 - span, 25 + span, y, 6);
+      }
+      drawLine64(g, 25, 25, 25, 37, 1); // Center crease
+      setP64(g, 23, 27, 5);             // Specular oil dot
+
+      // Bean 2 (right)
+      for (let y = 28; y <= 44; y++) {
+        const span = Math.floor(Math.sin(((y - 28) / 16) * Math.PI) * 8);
+        fillHLine64(g, 40 - span, 40 + span, y, 6);
+      }
+      drawLine64(g, 39, 29, 41, 43, 1);
+      setP64(g, 37, 31, 5);
+
+      // Bean 3 (front center)
+      for (let y = 36; y <= 50; y++) {
+        const span = Math.floor(Math.sin(((y - 36) / 14) * Math.PI) * 8);
+        fillHLine64(g, 32 - span, 32 + span, y, 2);
+      }
+      drawLine64(g, 32, 37, 32, 49, 1);
+      setP64(g, 30, 39, 5);
+      break;
+    }
+
+    case 'ground_powder': {
+      // Sifted powder mound / tamped espresso puck
+      for (let y = 24; y <= 48; y++) {
+        const span = Math.floor(((y - 24) / 24) * 18);
+        fillHLine64(g, 32 - span, 32 + span, y, 6);
+        if (y < 32) fillHLine64(g, 32 - Math.floor(span * 0.7), 32 + Math.floor(span * 0.7), y, 2);
+      }
+      // Micro particulate texture
+      for (let i = 0; i < 20; i++) {
+        const px = 20 + rng.int(0, 24);
+        const py = 30 + rng.int(0, 16);
+        setP64(g, px, py, i % 3 === 0 ? 5 : 1);
+      }
+      break;
+    }
+
+    case 'espresso_shot': {
+      // Artisan glass demitasse filled with dark espresso crowned with golden crema
+      // Glass body
+      fillRect64(g, 22, 24, 20, 26, 8);  // Glass walls
+      fillRect64(g, 24, 26, 16, 22, 6);  // Espresso body
+      // Golden Hazelnut Crema
+      fillHLine64(g, 24, 39, 26, 10);
+      fillHLine64(g, 24, 39, 27, 11);
+      fillHLine64(g, 25, 38, 28, 10);
+      // Demitasse handle
+      drawCircleRing64(g, 44, 35, 4, 7, 7);
+      // Glass specular sheen
+      drawLine64(g, 23, 26, 23, 46, 5);
+      // Saucer
+      fillHLine64(g, 16, 48, 50, 7);
+      fillHLine64(g, 18, 46, 51, 8);
+      break;
+    }
+
+    case 'milk_pitcher': {
+      // Stainless steel barista frothing pitcher with pouring spout & microfoam
+      fillRect64(g, 20, 24, 22, 26, 7); // Steel body
+      fillRect64(g, 22, 26, 18, 22, 8);
+      // Spout on left
+      drawLine64(g, 20, 24, 14, 20, 7);
+      drawLine64(g, 20, 28, 14, 20, 7);
+      // Handle on right
+      drawCircleRing64(g, 44, 36, 5, 8, 7);
+      // Velvety white microfoam
+      fillCircle64(g, 28, 24, 6, 5);
+      fillCircle64(g, 34, 24, 5, 5);
+      break;
+    }
+
+    case 'billet': {
+      // Solid dense metallurgical alloy billet blank with beveled edges
+      fillRect64(g, 16, 24, 32, 20, 7); // Main front face
+      fillRect64(g, 18, 20, 32, 4, 8);  // Top beveled facet
+      fillRect64(g, 48, 22, 4, 20, 6);  // Shaded side
+      fillHLine64(g, 18, 48, 24, 5);    // Specular top edge
+      // Cooling crystal grain lines
+      drawLine64(g, 22, 28, 28, 38, 8);
+      drawLine64(g, 34, 28, 40, 38, 8);
+      break;
+    }
+
+    case 'blade_blank': {
+      // Forged sword blade core blank with heat temper sheen
+      drawLine64(g, 16, 48, 48, 16, 7); // Center spine
+      drawLine64(g, 17, 48, 49, 16, 8);
+      drawLine64(g, 15, 48, 47, 16, 6);
+      // Tang & shoulders
+      fillRect64(g, 14, 48, 6, 8, 2);
+      // Heat bluing temper
+      drawLine64(g, 32, 32, 40, 24, 14);
+      setP64(g, 47, 16, 5); // Razor tip highlight
+      break;
+    }
+
+    case 'pommel_hilt': {
+      // Crossguard, wrapped leather grip, and weighted steel pommel
+      fillRect64(g, 16, 30, 32, 4, 7); // Crossguard
+      fillCircle64(g, 16, 32, 3, 11);
+      fillCircle64(g, 48, 32, 3, 11);
+      // Grip
+      fillRect64(g, 28, 34, 8, 18, 2);
+      // Leather cross-stitch bindings
+      for (let y = 36; y <= 50; y += 4) {
+        drawLine64(g, 28, y, 35, y + 2, 10);
+      }
+      // Pommel
+      fillCircle64(g, 32, 54, 5, 7);
+      fillCircle64(g, 32, 54, 2, 11);
+      break;
+    }
+
+    case 'chassis': {
+      // Precision-machined industrial chassis frame with structural cutouts
+      fillRect64(g, 16, 18, 32, 28, 2); // Dark titanium frame
+      fillRect64(g, 18, 20, 28, 24, 7);
+      // Internal structural weight-reduction bays
+      fillRect64(g, 21, 23, 10, 8, 6);
+      fillRect64(g, 33, 23, 10, 8, 6);
+      fillRect64(g, 21, 33, 10, 8, 6);
+      fillRect64(g, 33, 33, 10, 8, 6);
+      // Corner mounting bolts
+      setP64(g, 19, 21, 5); setP64(g, 44, 21, 5);
+      setP64(g, 19, 42, 5); setP64(g, 44, 42, 5);
+      break;
+    }
+
+    case 'circuit': {
+      // Laser-etched silicon circuit board with gold pins & status micro-LED
+      fillRect64(g, 18, 18, 28, 28, 13); // High-grade PCB green
+      fillRect64(g, 20, 20, 24, 24, 12);
+      // Gold edge fingers
+      for (let x = 20; x <= 42; x += 3) {
+        fillVLine64(g, x, 42, 45, 11);
+      }
+      // Copper tracing
+      drawLine64(g, 24, 24, 30, 24, 11);
+      drawLine64(g, 30, 24, 30, 32, 11);
+      drawLine64(g, 30, 32, 38, 32, 11);
+      // Central microcontroller package
+      fillRect64(g, 26, 26, 12, 12, 6);
+      setP64(g, 24, 28, 5); // Status micro-LED
+      break;
+    }
+
+    case 'conduit_wire': {
+      // Braided cable harness with color-coded conductors & gold terminals
+      for (let i = 0; i < 3; i++) {
+        const offset = i * 4;
+        drawLine64(g, 16 + offset, 48, 36 + offset, 16, i === 0 ? 16 : i === 1 ? 14 : 10);
+      }
+      // Protective braided collar
+      fillRect64(g, 24, 30, 16, 6, 2);
+      fillHLine64(g, 24, 39, 31, 5);
+      break;
+    }
+
+    case 'mechanism': {
+      // Precision clockwork / actuator mechanism with intermeshed brass gears
+      drawCircleRing64(g, 28, 28, 8, 12, 11); // Large brass gear
+      drawCircleRing64(g, 40, 40, 6, 9, 7);   // Driven steel pinion
+      // Gear teeth
+      for (let a = 0; a < 8; a++) {
+        const rad = (a * Math.PI) / 4;
+        const tx = 28 + Math.floor(Math.cos(rad) * 14);
+        const ty = 28 + Math.floor(Math.sin(rad) * 14);
+        setP64(g, tx, ty, 11);
+      }
+      fillCircle64(g, 28, 28, 3, 5);
+      fillCircle64(g, 40, 40, 2, 5);
+      break;
+    }
+
+    case 'lens_optic': {
+      // Multi-element coated optical prism & focusing lens with violet antireflective coating
+      drawCircleRing64(g, 32, 32, 14, 18, 7); // Brass retaining bezel
+      fillCircle64(g, 32, 32, 13, 14);        // Cyan/violet optic glass
+      fillCircle64(g, 32, 32, 10, 15);
+      // Specular crescent gleam
+      drawCircleRing64(g, 28, 28, 6, 8, 5);
+      break;
+    }
+
+    case 'herb_bundle': {
+      // Fresh culinary herb sprigs tied with natural twine
+      fillCircle64(g, 32, 26, 12, 13); // Green basil leaves
+      fillCircle64(g, 24, 28, 8, 12);
+      fillCircle64(g, 40, 28, 8, 13);
+      // Stems
+      drawLine64(g, 32, 36, 32, 50, 12);
+      drawLine64(g, 28, 36, 32, 50, 12);
+      drawLine64(g, 36, 36, 32, 50, 12);
+      // Twine wrap
+      fillRect64(g, 28, 40, 8, 4, 10);
+      break;
+    }
+
+    case 'food_platter': {
+      // Gourmet artisan course plated on fine porcelain with reduction drizzle
+      fillCircle64(g, 32, 38, 20, 8);  // Rim
+      fillCircle64(g, 32, 38, 16, 7);
+      fillCircle64(g, 32, 37, 10, 10); // Plated center delicacy
+      fillCircle64(g, 32, 37, 6, 16);  // Glaze
+      setP64(g, 30, 35, 13); setP64(g, 34, 38, 13); // Herb garnish
       break;
     }
 
     // ========================================================================
-    // Dynamic Procedural Fallback: Authentic Detailed Item (NEVER plain sphere!)
+    // Dynamic Procedural Engine for 'artifact' and default (NO identical sprites!)
     // ========================================================================
+    case 'artifact':
     default: {
-      const shapeType = rng.int(0, 7);
+      const family = rng.int(0, 7);
+      const subVariant = rng.int(0, 3);
+      const accents = [5, 11, 14, 15, 16, 17, 18];
+      const accentTone = accents[rng.int(0, accents.length - 1)];
 
-      if (shapeType === 0) {
-        // Faceted Gem Cluster / Mineral Crystal Shards
-        fillCircle64(g, 32, 34, 14, 3);
-        for (let i = 0; i < 4; i++) {
-          const angle = (i * Math.PI) / 2 + 0.3;
-          const fx = 32 + Math.floor(Math.cos(angle) * 8);
-          const fy = 34 + Math.floor(Math.sin(angle) * 8);
-          fillCircle64(g, fx, fy, 5, 4);
+      if (family === 0) {
+        // Family 0: Modular Tech Chassis / Micro-Processor Module
+        const w = 24 + subVariant * 4;
+        const h = 20 + subVariant * 4;
+        fillRect64(g, 32 - Math.floor(w / 2), 34 - Math.floor(h / 2), w, h, 2);
+        fillRect64(g, 32 - Math.floor(w / 2) + 2, 34 - Math.floor(h / 2) + 2, w - 4, h - 4, 7);
+        // Core die
+        fillRect64(g, 27, 29, 10, 10, 6);
+        setP64(g, 32, 34, accentTone);
+        // Pin contacts
+        for (let x = 32 - Math.floor(w / 2) + 4; x <= 32 + Math.floor(w / 2) - 4; x += 4) {
+          fillVLine64(g, x, 34 - Math.floor(h / 2) - 2, 34 - Math.floor(h / 2), 11);
+          fillVLine64(g, x, 34 + Math.floor(h / 2), 34 + Math.floor(h / 2) + 2, 11);
+        }
+      } else if (family === 1) {
+        // Family 1: Alchemical Distillation Retort / Crystal Essence Phial
+        const flaskRadius = 10 + subVariant * 2;
+        fillCircle64(g, 32, 38, flaskRadius, 8); // Glass bulb
+        fillCircle64(g, 32, 38, flaskRadius - 2, accentTone); // Glowing liquid
+        // Flask neck
+        fillRect64(g, 29, 18, 6, 14, 8);
+        fillRect64(g, 28, 16, 8, 3, 10); // Cork stopper
+        // Specular gleam & bubble motes
+        fillCircle64(g, 30, 36, 2, 5);
+        setP64(g, 34, 40, 5);
+      } else if (family === 2) {
+        // Family 2: Arcane Runic Monolith / Weathered Stone Stele
+        const stoneW = 18 + subVariant * 4;
+        fillRect64(g, 32 - Math.floor(stoneW / 2), 18, stoneW, 32, 2);
+        fillRect64(g, 32 - Math.floor(stoneW / 2) + 2, 20, stoneW - 4, 28, 6);
+        // Carved glowing runic channel
+        drawLine64(g, 32, 22, 32, 44, accentTone);
+        drawLine64(g, 26, 30, 38, 30, accentTone);
+        drawLine64(g, 28, 38, 36, 38, accentTone);
+        setP64(g, 32, 30, 5);
+      } else if (family === 3) {
+        // Family 3: Faceted Prismatic Geode / Gem Cluster
+        const geodeRad = 12 + subVariant * 2;
+        fillCircle64(g, 32, 34, geodeRad, 2);
+        fillCircle64(g, 32, 34, geodeRad - 2, 6);
+        // Crystal shards protruding
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * Math.PI * 2) / 5 + subVariant;
+          const fx = 32 + Math.floor(Math.cos(angle) * (geodeRad * 0.7));
+          const fy = 34 + Math.floor(Math.sin(angle) * (geodeRad * 0.7));
+          fillCircle64(g, fx, fy, 4, accentTone);
           setP64(g, fx, fy, 5);
         }
-      } else if (shapeType === 1) {
-        // Ornate Relic Medallion / Celestial Seal
-        for (let y = 20; y <= 44; y++) {
-          const w = Math.floor(Math.sin(((y - 20) / 24) * Math.PI) * 12);
-          fillHLine64(g, 32 - w, 32 + w, y, 11);
-          fillHLine64(g, 32 - Math.max(0, w - 2), 32 + Math.max(0, w - 2), y, 3);
-        }
-        fillCircle64(g, 32, 32, 4, 5);
-      } else if (shapeType === 2) {
-        // Forged Ingot / Power Prism
-        fillRect64(g, 20, 24, 24, 16, 3);
-        fillHLine64(g, 20, 43, 24, 5);
-        fillRect64(g, 24, 28, 16, 8, 4);
-      } else if (shapeType === 3) {
-        // Alchemical Glass Vial / Essence Flask
-        fillCircle64(g, 32, 38, 12, 3);
-        fillRect64(g, 29, 22, 6, 12, 8);
-        fillCircle64(g, 32, 36, 8, 4);
-        setP64(g, 30, 30, 5);
-      } else if (shapeType === 4) {
-        // Compact clockwork mechanism with visible gears and feet
-        fillRect64(g, 16, 20, 32, 28, 6);
-        fillRect64(g, 20, 24, 24, 18, 3);
-        drawCircleRing64(g, 27, 33, 7, 11, 2);
-        drawCircleRing64(g, 38, 31, 5, 8, 2);
-        fillCircle64(g, 27, 33, 2, 5);
-        fillCircle64(g, 38, 31, 1.5, 5);
-        fillRect64(g, 19, 48, 7, 5, 7);
-        fillRect64(g, 38, 48, 7, 5, 7);
-      } else if (shapeType === 5) {
-        // Inscribed component tablet with a central maker's seal
-        fillRect64(g, 16, 12, 32, 42, 6);
-        fillRect64(g, 20, 16, 24, 34, 3);
-        drawCircleRing64(g, 32, 29, 9, 13, 2);
-        drawLine64(g, 25, 44, 39, 44, 8);
-        drawLine64(g, 27, 48, 37, 48, 7);
-        fillCircle64(g, 32, 29, 3, 5);
-      } else if (shapeType === 6) {
-        // Bound artisan pouch containing a botanical or powdered material
-        fillCircle64(g, 32, 39, 15, 15);
-        fillRect64(g, 24, 23, 16, 9, 15);
-        drawLine64(g, 22, 29, 42, 29, 11);
-        drawLine64(g, 31, 23, 27, 16, 12);
-        drawLine64(g, 33, 23, 38, 16, 12);
-        fillCircle64(g, 27, 39, 3, 22);
-        fillCircle64(g, 36, 42, 2, 18);
+      } else if (family === 4) {
+        // Family 4: Forged Heavy Metallurgical Ingot Prism
+        const barW = 28 + subVariant * 2;
+        fillRect64(g, 32 - Math.floor(barW / 2), 24, barW, 18, 7);
+        fillHLine64(g, 32 - Math.floor(barW / 2), 32 + Math.floor(barW / 2), 24, 5);
+        fillRect64(g, 32 - Math.floor(barW / 2) + 4, 28, barW - 8, 10, 8);
+        // Smithing stamped mark
+        fillCircle64(g, 32, 33, 3, accentTone);
+      } else if (family === 5) {
+        // Family 5: Artisan Plated Culinary Delicacy
+        fillCircle64(g, 32, 38, 18, 7); // Porcelain dish
+        fillCircle64(g, 32, 38, 14, 8);
+        fillCircle64(g, 32, 37, 9, 10);  // Savory item
+        fillCircle64(g, 32, 37, 5, accentTone); // Reduction sauce
+        setP64(g, 30, 34, 13);           // Herb sprig
+      } else if (family === 6) {
+        // Family 6: High-Voltage Plasma Capsule / Power Cell
+        fillRect64(g, 24, 20, 16, 28, 8); // Capsule tube
+        fillRect64(g, 26, 22, 12, 24, 6);
+        // Glowing plasma filament
+        drawLine64(g, 32, 24, 30, 30, accentTone);
+        drawLine64(g, 30, 30, 34, 36, accentTone);
+        drawLine64(g, 34, 36, 32, 42, accentTone);
+        // Brass end caps
+        fillRect64(g, 22, 17, 20, 4, 11);
+        fillRect64(g, 22, 47, 20, 4, 11);
       } else {
-        // Asymmetric crafted implement, distinct from gems and potion bottles
-        drawLine64(g, 16, 53, 39, 23, 15);
-        drawLine64(g, 18, 54, 41, 24, 23);
-        fillCircle64(g, 43, 20, 11, 6);
-        fillCircle64(g, 42, 19, 7, 14);
-        drawLine64(g, 37, 14, 52, 10, 8);
-        fillCircle64(g, 16, 52, 4, 11);
+        // Family 7: Ancient Celestial Astrolabe / Forged Relic Talisman
+        drawCircleRing64(g, 32, 32, 14, 18, 11); // Outer gold ring
+        drawCircleRing64(g, 32, 32, 8, 11, 7);   // Inner brass ring
+        fillCircle64(g, 32, 32, 5, accentTone);  // Center gemstone
+        setP64(g, 32, 32, 5);
       }
       break;
     }
   }
 
-  applyArtisanDetailPass64(g, rng, hash, itemName, itemCategory, archetype);
-
   // Always apply crisp 1px RPG dark contour outline
   addAutomaticOutlines64(g);
 
   return g;
+}
+
+/**
+ * Direct High-Definition 64x64 Procedural Sprite Canvas Renderer
+ * Renders the full 64x64 matrix with nearest-neighbor crisp pixels and authentic palettes.
+ */
+export function drawProceduralSprite64(
+  canvas: HTMLCanvasElement,
+  config: SpriteConfig,
+  sizePx: number
+): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = sizePx * dpr;
+  canvas.height = sizePx * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+
+  const hash = hashString(config.name + (config.category || ''));
+  const archetype = detectArchetype(config.name, config.category || '', config.emoji || '');
+  const rarity = config.rarity || 'Common';
+  const palette = RARITY_PALETTES[rarity] || RARITY_PALETTES.Common;
+  const primaryColor = config.color || getItemColor(config);
+
+  // 1. Dark Vignette Canvas Background
+  const bgGrad = ctx.createRadialGradient(
+    sizePx / 2, sizePx / 2, sizePx * 0.1,
+    sizePx / 2, sizePx / 2, sizePx * 0.72
+  );
+  bgGrad.addColorStop(0, '#121829');
+  bgGrad.addColorStop(0.7, '#080c16');
+  bgGrad.addColorStop(1, '#03060c');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, sizePx, sizePx);
+
+  // 2. Soft Ambient Halo matching the item's theme color
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(sizePx / 2, sizePx / 2, sizePx * 0.38, 0, Math.PI * 2);
+  ctx.fillStyle = `${primaryColor}26`;
+  ctx.shadowColor = primaryColor;
+  ctx.shadowBlur = sizePx >= 80 ? 16 : 8;
+  ctx.fill();
+  ctx.restore();
+
+  // 3. Obtain 64x64 Matrix
+  const pixelMatrix = generateArchetypePixelMatrix64(archetype as any, hash, config.name, config.category);
+  const matrixSize = 64;
+
+  // Find exact bounding box of drawn pixels for optimal auto-centering & filling
+  let minX = matrixSize;
+  let maxX = 0;
+  let minY = matrixSize;
+  let maxY = 0;
+  for (let y = 0; y < matrixSize; y++) {
+    for (let x = 0; x < matrixSize; x++) {
+      if (pixelMatrix[y][x] > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  // Blank matrix fallback
+  if (minX > maxX) {
+    minX = 16; maxX = 48; minY = 16; maxY = 48;
+  }
+
+  const spriteW = maxX - minX + 1;
+  const spriteH = maxY - minY + 1;
+  const maxDim = Math.max(spriteW, spriteH);
+
+  // Auto-scale so the actual pixel art fills ~88% of the canvas
+  const targetArea = sizePx * 0.88;
+  const pixelScale = Math.max(0.2, targetArea / maxDim);
+
+  const renderedW = spriteW * pixelScale;
+  const renderedH = spriteH * pixelScale;
+  const startX = (sizePx - renderedW) / 2 - minX * pixelScale;
+  const startY = (sizePx - renderedH) / 2 - minY * pixelScale;
+
+  // 24-Color High-Definition Material Palette
+  const colorMap: Record<number, string> = {
+    0: 'transparent',
+    1: '#040711', // Deep Dark RPG Contour Outline
+    2: shadeColor(primaryColor, -45), // Deep Shadow
+    3: primaryColor, // Base Mid-tone
+    4: shadeColor(primaryColor, 40), // Specular Highlight
+    5: '#ffffff', // Radiant Core Pure White
+    6: '#1e293b', // Secondary Dark (Carbon / Deep Walnut / Slate)
+    7: '#64748b', // Secondary Mid (Silver / Steel)
+    8: '#cbd5e1', // Secondary Light (Platinum / Chrome)
+    9: '#ef4444', // Ruby / Crimson / Fire Red
+    10: '#f97316', // Flame Orange / Amber
+    11: '#f59e0b', // Imperial Gold / Honey Butter
+    12: '#10b981', // Emerald Nature / Spore Green
+    13: '#8b5cf6', // Arcane Purple Rune
+    14: '#06b6d4', // Electric Cyan / Plasma Arc
+    15: '#92400e', // Warm Wood Brown / Leather
+    16: '#fef3c7', // Soft Cream / Pasta Ivory
+    17: '#090d16', // Deep Ambient Shadow
+    18: '#eab308', // Electric Yellow
+    19: '#ec4899', // Neon Pink
+    20: '#0f172a', // Midnight Navy
+    21: '#dc2626', // Rich Red Marinara
+    22: '#059669', // Fresh Mint Green
+    23: '#78350f', // Roasted Brown Crust
+  };
+
+  // Render Crisp Pixels without gaps
+  for (let y = 0; y < matrixSize; y++) {
+    for (let x = 0; x < matrixSize; x++) {
+      const val = pixelMatrix[y][x];
+      if (val === 0) continue;
+
+      ctx.fillStyle = colorMap[val] || primaryColor;
+      const px = Math.floor(startX + x * pixelScale);
+      const py = Math.floor(startY + y * pixelScale);
+      const pw = Math.max(1, Math.ceil(startX + (x + 1) * pixelScale) - px);
+      const ph = Math.max(1, Math.ceil(startY + (y + 1) * pixelScale) - py);
+      ctx.fillRect(px, py, pw, ph);
+    }
+  }
+
+  // Ambient Scanline for large displays
+  if (sizePx >= 60) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    for (let y = 0; y < sizePx; y += 3) {
+      ctx.fillRect(0, y, sizePx, 1);
+    }
+  }
+
+  // Sparkles for Rare / Epic / Legendary items
+  if (palette.sparkles > 0 && sizePx >= 60) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < palette.sparkles; i++) {
+      const angle = (((hash + i * 79) % 360) * Math.PI) / 180;
+      const dist = sizePx * 0.35 + ((hash * (i + 1)) % (sizePx * 0.1));
+      const sx = sizePx / 2 + Math.cos(angle) * dist;
+      const sy = sizePx / 2 + Math.sin(angle) * dist;
+      const pSize = i % 2 === 0 ? 2 : 1.2;
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, pSize, 0, Math.PI * 2);
+      ctx.shadowColor = primaryColor;
+      ctx.shadowBlur = 6;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 }

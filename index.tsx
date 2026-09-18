@@ -23,6 +23,10 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { initializePrecomputation } from './lib/common-items-precompute';
+
+// Warm up 64x64 procedural pixel-art sprites for all starting ingredients, tools, and presets
+initializePrecomputation();
 
 interface Props {
   children: ReactNode;

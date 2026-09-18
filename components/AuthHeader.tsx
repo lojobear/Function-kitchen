@@ -33,16 +33,45 @@ export function AuthHeader({
 }: AuthHeaderProps) {
   const [loggingIn, setLoggingIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isIframeNotice, setIsIframeNotice] = useState(false);
 
   const handleLogin = async () => {
     try {
       setLoggingIn(true);
       setErrorMsg(null);
+      setIsIframeNotice(false);
       await onLogin();
     } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        setErrorMsg(err?.message || 'Login failed. Please try again.');
+      const code = err?.code || '';
+      const message = err?.message || String(err);
+
+      // User closed the popup - normal cancellation
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        message.includes('popup-closed-by-user') ||
+        message.includes('cancelled-popup-request')
+      ) {
+        return;
       }
+
+      if (
+        code === 'auth/network-request-failed' ||
+        code === 'auth/popup-blocked' ||
+        message.includes('network-request-failed') ||
+        message.includes('popup-blocked')
+      ) {
+        const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+        if (isInIframe) {
+          setIsIframeNotice(true);
+          setErrorMsg('Iframe third-party cookie restrictions prevented sign-in.');
+        } else {
+          setErrorMsg('Network request failed. Please check connection or pop-up blocker.');
+        }
+        return;
+      }
+
+      setErrorMsg(message || 'Login failed. Please try again.');
     } finally {
       setLoggingIn(false);
     }
@@ -131,7 +160,32 @@ export function AuthHeader({
           </button>
         )}
 
-        {errorMsg && <span className="auth-error-chip">{errorMsg}</span>}
+        {errorMsg && (
+          <div className="auth-error-chip" role="alert">
+            <span>⚠️ {errorMsg}</span>
+            {isIframeNotice && (
+              <button
+                type="button"
+                onClick={() => window.open(window.location.href, '_blank')}
+                className="auth-error-tab-btn"
+                title="Open app in a new browser tab where Google Sign-In popup is permitted"
+              >
+                ↗ Open in New Tab
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMsg(null);
+                setIsIframeNotice(false);
+              }}
+              className="auth-error-dismiss-btn"
+              title="Dismiss message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {authLoading ? (
           <div className="auth-loading-spinner">Loading...</div>

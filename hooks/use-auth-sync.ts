@@ -326,7 +326,34 @@ export function useAuthAndForgeSync() {
       setSyncStatus('syncing');
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error("Google Sign-In Error:", err);
+      const code = err?.code || '';
+      const message = err?.message || String(err);
+
+      // User closed or cancelled the popup - expected user action, NOT an application error
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        message.includes('popup-closed-by-user') ||
+        message.includes('cancelled-popup-request')
+      ) {
+        console.info('Google Sign-In popup closed by user.');
+        setSyncStatus('local');
+        return;
+      }
+
+      // Network request failure (frequently caused by third-party cookie blocking in preview iframes)
+      if (
+        code === 'auth/network-request-failed' ||
+        code === 'auth/popup-blocked' ||
+        message.includes('network-request-failed') ||
+        message.includes('popup-blocked')
+      ) {
+        console.warn('Google Sign-In notice (iframe/network restriction):', code || message);
+        setSyncStatus('local');
+        throw err;
+      }
+
+      console.warn('Google Sign-In warning:', code || message);
       setSyncStatus('local');
       throw err;
     }
@@ -337,7 +364,7 @@ export function useAuthAndForgeSync() {
       await signOut(auth);
       setSyncStatus('local');
     } catch (err: any) {
-      console.error("Sign Out Error:", err);
+      console.warn('Sign Out notice:', err?.message || err);
     }
   }, []);
 
